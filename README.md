@@ -8,28 +8,34 @@ Dashboard para construir y gestionar una empresa (orientado a Argentina: SAS, CU
 
 - TanStack Start / React Router
 - React 19 + Tailwind CSS 4
-- Zustand, Recharts, better-auth, PGlite
+- Zustand, Recharts
 - Vite
 
-## Rutas principales
+## Rutas
 
-- `/` — Home / briefing
-- `/tareas` — Tablero de tareas (P0/P1)
-- `/finanzas` — Ingresos, gastos, proyección de wealth
-- `/ceo` — Vista CEO
-- `/empresa` — Estado de la empresa
-- `/os` — Módulos del sistema operativo
-- `/youtube` — Hitos de contenido
+| Ruta | Descripción |
+|------|-------------|
+| `/` | HQ / briefing |
+| `/tareas` | Tablero P0–P3 |
+| `/empresa` | Estado legal y gaps |
+| `/finanzas` | Ingresos, gastos, wealth |
+| `/youtube` | Hitos y pilares del canal |
+| `/os` | Módulos del sistema operativo |
+| `/ceo` | Cadencia y rate card |
 
-## Desarrollo
+## Cómo correr
 
 ```bash
+git clone https://github.com/alexironmanreal-ai/app-empresarial.git
+cd app-empresarial
 npm install
 npm run dev
 ```
 
-La app espera el entorno de App Builder de Grok (auth gates, preview bridge). Para uso standalone puede requerir ajustes en `src/lib/auth` y scripts de entorno.
+Abrí http://localhost:8080
 
-## Origen
+## Notas
 
-Generada y refinada en el workspace de Grok App Builder.
+- El progreso de tareas se guarda en `localStorage` (Zustand persist).
+- En Ajustes podés cambiar founder, empresa, moneda (USD/ARS) y reiniciar.
+- Versión adaptada para correr fuera del entorno Grok App Builder.
