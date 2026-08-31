@@ -19,11 +19,15 @@ type HqState = {
   profile: Profile;
   currency: Currency;
   scenario: Scenario;
+  onboarded: boolean;
+  focusP0: boolean;
   toggle: (id: string) => void;
   setDone: (id: string, value: boolean) => void;
   setProfile: (p: Partial<Profile>) => void;
   setCurrency: (c: Currency) => void;
   setScenario: (s: Scenario) => void;
+  setOnboarded: (v: boolean) => void;
+  setFocusP0: (v: boolean) => void;
   reset: () => void;
 };
 
@@ -42,23 +46,26 @@ export const useHq = create<HqState>()(
       profile: DEFAULT_PROFILE,
       currency: "USD",
       scenario: "base",
-      toggle: (id) =>
-        set((s) => ({ done: { ...s.done, [id]: !s.done[id] } })),
-      setDone: (id, value) =>
-        set((s) => ({ done: { ...s.done, [id]: value } })),
-      setProfile: (p) =>
-        set((s) => ({ profile: { ...s.profile, ...p } })),
+      onboarded: false,
+      focusP0: false,
+      toggle: (id) => set((s) => ({ done: { ...s.done, [id]: !s.done[id] } })),
+      setDone: (id, value) => set((s) => ({ done: { ...s.done, [id]: value } })),
+      setProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
       setCurrency: (currency) => set({ currency }),
       setScenario: (scenario) => set({ scenario }),
+      setOnboarded: (onboarded) => set({ onboarded }),
+      setFocusP0: (focusP0) => set({ focusP0 }),
       reset: () =>
         set({
           done: {},
           profile: DEFAULT_PROFILE,
           currency: "USD",
           scenario: "base",
+          onboarded: false,
+          focusP0: false,
         }),
     }),
-    { name: "axion-hq-v1", skipHydration: true },
+    { name: "axion-hq-v2" },
   ),
 );
 
