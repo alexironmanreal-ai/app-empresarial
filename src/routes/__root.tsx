@@ -1,5 +1,6 @@
-import { createRootRoute, Outlet, Link } from "@tanstack/react-router";
+import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { Shell } from "@/components/layout";
+import { Onboarding } from "@/components/onboarding";
 
 export const Route = createRootRoute({
   component: Root,
@@ -7,8 +8,11 @@ export const Route = createRootRoute({
 
 function Root() {
   return (
-    <Shell>
-      <Outlet />
-    </Shell>
+    <>
+      <Onboarding />
+      <Shell>
+        <Outlet />
+      </Shell>
+    </>
   );
 }
