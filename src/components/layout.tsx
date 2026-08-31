@@ -153,7 +153,7 @@ function SettingsDialog() {
             </div>
           </div>
           <Button
-            variant="destructive"
+            variant="danger"
             className="w-full"
             onClick={() => {
               reset();
