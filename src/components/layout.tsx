@@ -3,6 +3,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Briefcase,
   Building2,
+  CalendarDays,
   Cpu,
   LayoutDashboard,
   ListChecks,
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/", label: "HQ", icon: LayoutDashboard },
   { to: "/tareas", label: "Tareas", icon: ListChecks },
+  { to: "/tracker", label: "365", icon: CalendarDays },
   { to: "/empresa", label: "Empresa", icon: Building2 },
   { to: "/finanzas", label: "Plata", icon: Wallet },
   { to: "/youtube", label: "YouTube", icon: Youtube },
@@ -86,7 +88,7 @@ export function Shell({ children }: { children: ReactNode }) {
         <SettingsDialog />
       </header>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-20 flex border-t border-border bg-bg/95 px-1 py-1 backdrop-blur-sm lg:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-20 flex overflow-x-auto border-t border-border bg-bg/95 px-1 py-1 backdrop-blur-sm lg:hidden">
         {NAV.map((item) => {
           const active = pathname === item.to;
           const Icon = item.icon;
@@ -95,7 +97,7 @@ export function Shell({ children }: { children: ReactNode }) {
               key={item.to}
               to={item.to}
               className={cn(
-                "flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px]",
+                "flex min-w-[3.25rem] flex-1 flex-col items-center gap-0.5 py-2 text-[10px]",
                 active ? "text-fg" : "text-subtle",
               )}
             >
