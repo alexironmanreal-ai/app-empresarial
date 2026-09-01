@@ -3,6 +3,7 @@ import { persist } from "zustand/middleware";
 import { TASKS, WEIGHT } from "./data";
 import type { Priority } from "./types";
 import type { MpBalance } from "./mercadopago";
+import type { YtChannelStats, YtVideoStat } from "./youtube";
 
 export type Currency = "USD" | "ARS";
 export type Scenario = "conservative" | "base" | "optimistic";
@@ -53,6 +54,11 @@ type HqState = {
   lastReviewAt: string | null;
   /** Burn mensual extra que el founder carga a mano (ARS) */
   extraMonthlyBurnArs: number;
+  /** YouTube Data API */
+  ytApiKey: string;
+  ytChannelInput: string; // handle, URL o UC…
+  ytStats: YtChannelStats | null;
+  ytVideos: YtVideoStat[];
   toggle: (id: string) => void;
   setDone: (id: string, value: boolean) => void;
   setProfile: (p: Partial<Profile>) => void;
@@ -71,6 +77,9 @@ type HqState = {
   closeDay: (snapshot: DaySnapshot) => void;
   markReview: () => void;
   setExtraMonthlyBurnArs: (n: number) => void;
+  setYtApiKey: (k: string) => void;
+  setYtChannelInput: (v: string) => void;
+  setYtStats: (s: YtChannelStats | null, videos?: YtVideoStat[]) => void;
   reset: () => void;
 };
 
@@ -105,6 +114,10 @@ export const useHq = create<HqState>()(
       daySnapshots: {},
       lastReviewAt: null,
       extraMonthlyBurnArs: 0,
+      ytApiKey: "",
+      ytChannelInput: "",
+      ytStats: null,
+      ytVideos: [],
       toggle: (id) => set((s) => ({ done: { ...s.done, [id]: !s.done[id] } })),
       setDone: (id, value) => set((s) => ({ done: { ...s.done, [id]: value } })),
       setProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
@@ -165,6 +178,13 @@ export const useHq = create<HqState>()(
         })),
       markReview: () => set({ lastReviewAt: new Date().toISOString() }),
       setExtraMonthlyBurnArs: (extraMonthlyBurnArs) => set({ extraMonthlyBurnArs }),
+      setYtApiKey: (ytApiKey) => set({ ytApiKey }),
+      setYtChannelInput: (ytChannelInput) => set({ ytChannelInput }),
+      setYtStats: (ytStats, videos) =>
+        set((s) => ({
+          ytStats,
+          ytVideos: videos !== undefined ? videos : s.ytVideos,
+        })),
       reset: () =>
         set({
           done: {},
@@ -181,6 +201,10 @@ export const useHq = create<HqState>()(
           daySnapshots: {},
           lastReviewAt: null,
           extraMonthlyBurnArs: 0,
+          ytApiKey: "",
+          ytChannelInput: "",
+          ytStats: null,
+          ytVideos: [],
         }),
     }),
     { name: "axion-hq-v4" },

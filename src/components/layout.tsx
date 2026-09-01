@@ -126,6 +126,10 @@ function SettingsDialog() {
   const setCurrency = useHq((s) => s.setCurrency);
   const mpToken = useHq((s) => s.mpToken);
   const setMpToken = useHq((s) => s.setMpToken);
+  const ytApiKey = useHq((s) => s.ytApiKey);
+  const setYtApiKey = useHq((s) => s.setYtApiKey);
+  const ytChannelInput = useHq((s) => s.ytChannelInput);
+  const setYtChannelInput = useHq((s) => s.setYtChannelInput);
   const reset = useHq((s) => s.reset);
   const [open, setOpen] = useState(false);
 
@@ -138,12 +142,12 @@ function SettingsDialog() {
         </Button>
       </DialogTrigger>
       <DialogContent>
-        <div className="space-y-4">
+        <div className="max-h-[80vh] space-y-4 overflow-y-auto">
           <h2 className="font-display text-xl">Perfil</h2>
           <Field label="Founder" value={profile.founder} onChange={(v) => setProfile({ founder: v })} />
           <Field label="Empresa" value={profile.company} onChange={(v) => setProfile({ company: v })} />
           <Field label="OS" value={profile.os} onChange={(v) => setProfile({ os: v })} />
-          <Field label="YouTube" value={profile.youtube} onChange={(v) => setProfile({ youtube: v })} />
+          <Field label="YouTube (nombre)" value={profile.youtube} onChange={(v) => setProfile({ youtube: v })} />
           <Field label="Nicho" value={profile.niche} onChange={(v) => setProfile({ niche: v })} />
           <div>
             <Label>Moneda</Label>
@@ -160,8 +164,10 @@ function SettingsDialog() {
               ))}
             </div>
           </div>
+
+          <h2 className="pt-2 font-display text-xl">Mercado Pago</h2>
           <div>
-            <Label>Mercado Pago · Access Token</Label>
+            <Label>Access Token</Label>
             <Input
               className="mt-1.5 font-mono text-xs"
               type="password"
@@ -171,9 +177,34 @@ function SettingsDialog() {
             />
             <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
               Developers → Tu aplicación → Credenciales de producción → Access Token.
-              Se guarda solo en este navegador. Usalo en Finanzas → Sincronizar.
             </p>
           </div>
+
+          <h2 className="pt-2 font-display text-xl">YouTube API</h2>
+          <div>
+            <Label>API Key (Google Cloud)</Label>
+            <Input
+              className="mt-1.5 font-mono text-xs"
+              type="password"
+              placeholder="AIza…"
+              value={ytApiKey}
+              onChange={(e) => setYtApiKey(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Canal · handle, URL o Channel ID</Label>
+            <Input
+              className="mt-1.5 font-mono text-xs"
+              placeholder="@tuCanal o UCxxxxxxxx"
+              value={ytChannelInput}
+              onChange={(e) => setYtChannelInput(e.target.value)}
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
+              Google Cloud → APIs → habilitar YouTube Data API v3 → Credenciales → API key.
+              Se guarda solo en este navegador.
+            </p>
+          </div>
+
           <Button
             variant="danger"
             className="w-full"

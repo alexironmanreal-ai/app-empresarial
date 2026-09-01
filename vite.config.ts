@@ -15,6 +15,12 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/mp/, ""),
       },
+      "/api/yt": {
+        target: "https://www.googleapis.com",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/yt/, ""),
+      },
     },
   },
 });
