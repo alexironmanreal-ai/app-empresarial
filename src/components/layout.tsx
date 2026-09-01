@@ -107,7 +107,9 @@ export function Shell({ children }: { children: ReactNode }) {
       </nav>
 
       <main className="lg:pl-56">
-        <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 lg:px-8 lg:pb-12 lg:pt-8">{children}</div>
+        <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 lg:px-8 lg:pb-12 lg:pt-8">
+          {children}
+        </div>
       </main>
     </div>
   );
@@ -118,6 +120,8 @@ function SettingsDialog() {
   const setProfile = useHq((s) => s.setProfile);
   const currency = useHq((s) => s.currency);
   const setCurrency = useHq((s) => s.setCurrency);
+  const mpToken = useHq((s) => s.mpToken);
+  const setMpToken = useHq((s) => s.setMpToken);
   const reset = useHq((s) => s.reset);
   const [open, setOpen] = useState(false);
 
@@ -151,6 +155,20 @@ function SettingsDialog() {
                 </Button>
               ))}
             </div>
+          </div>
+          <div>
+            <Label>Mercado Pago · Access Token</Label>
+            <Input
+              className="mt-1.5 font-mono text-xs"
+              type="password"
+              placeholder="APP_USR-…"
+              value={mpToken}
+              onChange={(e) => setMpToken(e.target.value)}
+            />
+            <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
+              Developers → Tu aplicación → Credenciales de producción → Access Token.
+              Se guarda solo en este navegador. Usalo en Finanzas → Sincronizar.
+            </p>
           </div>
           <Button
             variant="danger"
