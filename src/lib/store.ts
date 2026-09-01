@@ -34,6 +34,10 @@ type HqState = {
   caja: CajaRow[];
   /** dateKey YYYY-MM-DD → activityId → done */
   dayLog: Record<string, Record<string, boolean>>;
+  /** ISO timestamp de la última review semanal cerrada */
+  lastReviewAt: string | null;
+  /** Burn mensual extra que el founder carga a mano (ARS) */
+  extraMonthlyBurnArs: number;
   toggle: (id: string) => void;
   setDone: (id: string, value: boolean) => void;
   setProfile: (p: Partial<Profile>) => void;
@@ -48,6 +52,8 @@ type HqState = {
   removeCajaRow: (id: string) => void;
   syncMpIntoCaja: (b: MpBalance) => void;
   toggleDayActivity: (date: string, activityId: string) => void;
+  markReview: () => void;
+  setExtraMonthlyBurnArs: (n: number) => void;
   reset: () => void;
 };
 
@@ -78,6 +84,8 @@ export const useHq = create<HqState>()(
       mpBalance: null,
       caja: DEFAULT_CAJA,
       dayLog: {},
+      lastReviewAt: null,
+      extraMonthlyBurnArs: 0,
       toggle: (id) => set((s) => ({ done: { ...s.done, [id]: !s.done[id] } })),
       setDone: (id, value) => set((s) => ({ done: { ...s.done, [id]: value } })),
       setProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
@@ -124,6 +132,8 @@ export const useHq = create<HqState>()(
           day[activityId] = !day[activityId];
           return { dayLog: { ...s.dayLog, [date]: day } };
         }),
+      markReview: () => set({ lastReviewAt: new Date().toISOString() }),
+      setExtraMonthlyBurnArs: (extraMonthlyBurnArs) => set({ extraMonthlyBurnArs }),
       reset: () =>
         set({
           done: {},
@@ -136,9 +146,11 @@ export const useHq = create<HqState>()(
           mpBalance: null,
           caja: DEFAULT_CAJA,
           dayLog: {},
+          lastReviewAt: null,
+          extraMonthlyBurnArs: 0,
         }),
     }),
-    { name: "axion-hq-v3" },
+    { name: "axion-hq-v4" },
   ),
 );
 

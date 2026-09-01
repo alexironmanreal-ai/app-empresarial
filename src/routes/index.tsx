@@ -1,27 +1,35 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Printer } from "lucide-react";
+import { ArrowRight, CheckCircle2, Printer } from "lucide-react";
 import { briefing } from "@/lib/briefing";
 import { GAPS, TASKS, WEALTH } from "@/lib/data";
-import { compactUsd, daysLabel, money, toArs } from "@/lib/format";
+import { compactUsd, daysLabel, money, toArs, ars } from "@/lib/format";
 import {
   companyScore,
   isTaskComplete,
   scoreByPriority,
   useHq,
 } from "@/lib/store";
+import { computeReality, runwayLabel } from "@/lib/reality";
 import { ChartShell, CompareArea, WealthChart } from "@/components/chart-block";
 import { Ring } from "@/components/ring";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { printDashboard } from "@/components/print-report";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
   const done = useHq((s) => s.done);
   const profile = useHq((s) => s.profile);
+  const caja = useHq((s) => s.caja);
+  const lastReviewAt = useHq((s) => s.lastReviewAt);
+  const extraMonthlyBurnArs = useHq((s) => s.extraMonthlyBurnArs);
+  const markReview = useHq((s) => s.markReview);
+
   const score = companyScore(done);
-  const memo = briefing(profile, done);
+  const reality = computeReality(caja, done, lastReviewAt, score, extraMonthlyBurnArs);
+  const memo = briefing(profile, done, reality);
   const p0 = scoreByPriority(done, "p0");
   const p1 = scoreByPriority(done, "p1");
   const open = TASKS.filter(
@@ -52,6 +60,13 @@ function Home() {
     optimistic: toArs(w.optimistic),
   }));
 
+  const toneClass =
+    reality.survivalTone === "danger"
+      ? "text-danger"
+      : reality.survivalTone === "warn"
+        ? "text-warn"
+        : "text-ok";
+
   return (
     <div className="space-y-8">
       <header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -65,15 +80,28 @@ function Home() {
           <p className="mt-4 max-w-xl text-base leading-relaxed text-muted">
             {memo.body}
           </p>
-          <Button
-            className="mt-4 gap-2 no-print"
-            variant="secondary"
-            size="sm"
-            onClick={() => printDashboard()}
-          >
-            <Printer className="size-3.5" />
-            Imprimir / fotocopiar dashboard
-          </Button>
+          <div className="mt-4 flex flex-wrap gap-2 no-print">
+            <Button
+              className="gap-2"
+              variant="secondary"
+              size="sm"
+              onClick={() => printDashboard()}
+            >
+              <Printer className="size-3.5" />
+              Imprimir / fotocopiar dashboard
+            </Button>
+            <Button
+              className="gap-2"
+              variant={reality.reviewOverdue ? "default" : "secondary"}
+              size="sm"
+              onClick={() => markReview()}
+            >
+              <CheckCircle2 className="size-3.5" />
+              {reality.reviewOverdue
+                ? "Cerrar review semanal (vencida)"
+                : "Marcar review hecha"}
+            </Button>
+          </div>
         </div>
         <div className="flex items-center gap-4 rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
           <Ring value={score} size={96} label="lista" />
@@ -91,21 +119,84 @@ function Home() {
         </div>
       </header>
 
+      {/* Realidad dura */}
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+            Caja total
+          </p>
+          <p className="mt-2 font-display text-2xl tabular-nums sm:text-3xl">
+            {ars(reality.totalCajaArs)}
+          </p>
+          <p className="mt-1 text-sm text-muted">Disponible ahora</p>
+        </div>
+        <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+            Runway
+          </p>
+          <p className={cn("mt-2 font-display text-2xl tabular-nums sm:text-3xl", toneClass)}>
+            {Number.isFinite(reality.runwayDays) ? `${reality.runwayDays}d` : "∞"}
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            {runwayLabel(reality.runwayDays)} · burn ~{ars(reality.monthlyBurnArs)}/mes
+          </p>
+        </div>
+        <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+            P0 abiertos
+          </p>
+          <p className="mt-2 font-display text-2xl tabular-nums sm:text-3xl">{p0left}</p>
+          <p className="mt-1 text-sm text-muted">
+            Máx. {daysLabel(daysP0)} para cerrar el bloque
+          </p>
+        </div>
+        <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+            Review
+          </p>
+          <p
+            className={cn(
+              "mt-2 font-display text-2xl tabular-nums sm:text-3xl",
+              reality.reviewOverdue ? "text-warn" : "text-ok",
+            )}
+          >
+            {reality.daysSinceReview === null
+              ? "Nunca"
+              : reality.daysSinceReview === 0
+                ? "Hoy"
+                : `${reality.daysSinceReview}d`}
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            {reality.reviewOverdue ? "Vencida — cerrala" : "Al día"}
+          </p>
+        </div>
+      </section>
+
       <section className="grid gap-4 lg:grid-cols-3">
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">P0 abiertos</p>
-          <p className="mt-2 font-display text-3xl tabular-nums">{p0left}</p>
-          <p className="mt-1 text-sm text-muted">Máx. {daysLabel(daysP0)} para cerrar el bloque</p>
-        </div>
-        <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Wealth año 5 · ARS</p>
-          <p className="mt-2 font-display text-3xl tabular-nums">{compactUsd(wealth5.base)}</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+            Wealth año 5 · ARS
+          </p>
+          <p className="mt-2 font-display text-3xl tabular-nums">
+            {compactUsd(wealth5.base)}
+          </p>
           <p className="mt-1 text-sm text-muted">Escenario base</p>
         </div>
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Wealth año 10 · ARS</p>
-          <p className="mt-2 font-display text-3xl tabular-nums">{compactUsd(wealth10.base)}</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+            Wealth año 10 · ARS
+          </p>
+          <p className="mt-2 font-display text-3xl tabular-nums">
+            {compactUsd(wealth10.base)}
+          </p>
           <p className="mt-1 text-sm text-muted">Escenario base</p>
+        </div>
+        <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+            Foco de hoy
+          </p>
+          <p className="mt-2 font-display text-xl leading-snug">{memo.focus}</p>
+          <p className="mt-1 text-sm text-muted">Según realidad actual</p>
         </div>
       </section>
 
@@ -153,7 +244,8 @@ function Home() {
       <section>
         <h2 className="font-display text-2xl">Qué falta para ser empresa</h2>
         <p className="mt-1 max-w-2xl text-sm text-muted">
-          El backup muestra visión (OS + marca + founder). No muestra CUIT, tarifa, ni un hello en QEMU.
+          El backup muestra visión (OS + marca + founder). No muestra CUIT, tarifa, ni un
+          hello en QEMU.
         </p>
         <div className="mt-4 overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
           <table className="w-full min-w-[640px] text-left text-sm">
