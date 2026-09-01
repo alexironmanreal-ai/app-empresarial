@@ -4,6 +4,7 @@ import { TASKS, WEIGHT } from "./data";
 import type { Priority } from "./types";
 import type { MpBalance } from "./mercadopago";
 import type { YtChannelStats, YtVideoStat } from "./youtube";
+import type { GhCommit, GhRepoSummary } from "./github";
 
 export type Currency = "USD" | "ARS";
 export type Scenario = "conservative" | "base" | "optimistic";
@@ -23,15 +24,40 @@ export type CajaRow = {
   source: "mp" | "manual";
 };
 
-/** Snapshot al cerrar / registrar un día */
 export type DaySnapshot = {
-  date: string; // YYYY-MM-DD
+  date: string;
   companyPct: number;
   p0Open: number;
   cajaArs: number;
-  dayProgress: number; // 0–1
+  dayProgress: number;
   note: string;
-  closedAt: string; // ISO
+  closedAt: string;
+};
+
+export type YtHistoryPoint = {
+  at: string;
+  subscriberCount: number;
+  viewCount: number;
+  videoCount: number;
+};
+
+export type LeadStage =
+  | "contactado"
+  | "call"
+  | "propuesta"
+  | "cobrado"
+  | "perdido";
+
+export type Lead = {
+  id: string;
+  name: string;
+  contact: string;
+  offer: string;
+  amountArs: number;
+  stage: LeadStage;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type HqState = {
@@ -44,21 +70,21 @@ type HqState = {
   mpToken: string;
   mpBalance: MpBalance | null;
   caja: CajaRow[];
-  /** dateKey YYYY-MM-DD → activityId → done */
   dayLog: Record<string, Record<string, boolean>>;
-  /** Notas libres por día */
   dayNotes: Record<string, string>;
-  /** Snapshots oficiales al "cerrar el día" */
   daySnapshots: Record<string, DaySnapshot>;
-  /** ISO timestamp de la última review semanal cerrada */
   lastReviewAt: string | null;
-  /** Burn mensual extra que el founder carga a mano (ARS) */
   extraMonthlyBurnArs: number;
-  /** YouTube Data API */
   ytApiKey: string;
-  ytChannelInput: string; // handle, URL o UC…
+  ytChannelInput: string;
   ytStats: YtChannelStats | null;
   ytVideos: YtVideoStat[];
+  ytHistory: YtHistoryPoint[];
+  leads: Lead[];
+  ghRepoInput: string;
+  ghToken: string;
+  ghSummary: GhRepoSummary | null;
+  ghCommits: GhCommit[];
   toggle: (id: string) => void;
   setDone: (id: string, value: boolean) => void;
   setProfile: (p: Partial<Profile>) => void;
@@ -80,6 +106,12 @@ type HqState = {
   setYtApiKey: (k: string) => void;
   setYtChannelInput: (v: string) => void;
   setYtStats: (s: YtChannelStats | null, videos?: YtVideoStat[]) => void;
+  addLead: (lead: Omit<Lead, "id" | "createdAt" | "updatedAt">) => void;
+  updateLead: (id: string, patch: Partial<Lead>) => void;
+  removeLead: (id: string) => void;
+  setGhRepoInput: (v: string) => void;
+  setGhToken: (v: string) => void;
+  setGhData: (summary: GhRepoSummary | null, commits: GhCommit[]) => void;
   reset: () => void;
 };
 
@@ -118,6 +150,12 @@ export const useHq = create<HqState>()(
       ytChannelInput: "",
       ytStats: null,
       ytVideos: [],
+      ytHistory: [],
+      leads: [],
+      ghRepoInput: "",
+      ghToken: "",
+      ghSummary: null,
+      ghCommits: [],
       toggle: (id) => set((s) => ({ done: { ...s.done, [id]: !s.done[id] } })),
       setDone: (id, value) => set((s) => ({ done: { ...s.done, [id]: value } })),
       setProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
@@ -181,10 +219,51 @@ export const useHq = create<HqState>()(
       setYtApiKey: (ytApiKey) => set({ ytApiKey }),
       setYtChannelInput: (ytChannelInput) => set({ ytChannelInput }),
       setYtStats: (ytStats, videos) =>
+        set((s) => {
+          let ytHistory = s.ytHistory;
+          if (ytStats) {
+            const point: YtHistoryPoint = {
+              at: ytStats.fetchedAt,
+              subscriberCount: ytStats.subscriberCount,
+              viewCount: ytStats.viewCount,
+              videoCount: ytStats.videoCount,
+            };
+            ytHistory = [...s.ytHistory, point].slice(-90);
+          }
+          return {
+            ytStats,
+            ytVideos: videos !== undefined ? videos : s.ytVideos,
+            ytHistory,
+          };
+        }),
+      addLead: (lead) =>
+        set((s) => {
+          const now = new Date().toISOString();
+          return {
+            leads: [
+              {
+                ...lead,
+                id: `L-${Date.now()}`,
+                createdAt: now,
+                updatedAt: now,
+              },
+              ...s.leads,
+            ],
+          };
+        }),
+      updateLead: (id, patch) =>
         set((s) => ({
-          ytStats,
-          ytVideos: videos !== undefined ? videos : s.ytVideos,
+          leads: s.leads.map((l) =>
+            l.id === id
+              ? { ...l, ...patch, updatedAt: new Date().toISOString() }
+              : l,
+          ),
         })),
+      removeLead: (id) =>
+        set((s) => ({ leads: s.leads.filter((l) => l.id !== id) })),
+      setGhRepoInput: (ghRepoInput) => set({ ghRepoInput }),
+      setGhToken: (ghToken) => set({ ghToken }),
+      setGhData: (ghSummary, ghCommits) => set({ ghSummary, ghCommits }),
       reset: () =>
         set({
           done: {},
@@ -205,9 +284,14 @@ export const useHq = create<HqState>()(
           ytChannelInput: "",
           ytStats: null,
           ytVideos: [],
+          ytHistory: [],
+          leads: [],
+          ghRepoInput: "",
+          ghToken: "",
+          ghSummary: null,
+          ghCommits: [],
         }),
     }),
-    // Misma key que antes para no borrar progreso del usuario
     { name: "axion-hq-v4" },
   ),
 );
@@ -260,3 +344,11 @@ export function scoreByPriority(done: Record<string, boolean>, p: Priority) {
 export function cajaTotalArs(caja: CajaRow[]) {
   return caja.reduce((a, r) => a + (Number(r.ars) || 0), 0);
 }
+
+export const LEAD_STAGES: { id: LeadStage; label: string }[] = [
+  { id: "contactado", label: "Contactado" },
+  { id: "call", label: "Call" },
+  { id: "propuesta", label: "Propuesta" },
+  { id: "cobrado", label: "Cobrado" },
+  { id: "perdido", label: "Perdido" },
+];
