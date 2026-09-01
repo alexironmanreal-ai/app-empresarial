@@ -22,6 +22,17 @@ export type CajaRow = {
   source: "mp" | "manual";
 };
 
+/** Snapshot al cerrar / registrar un día */
+export type DaySnapshot = {
+  date: string; // YYYY-MM-DD
+  companyPct: number;
+  p0Open: number;
+  cajaArs: number;
+  dayProgress: number; // 0–1
+  note: string;
+  closedAt: string; // ISO
+};
+
 type HqState = {
   done: Record<string, boolean>;
   profile: Profile;
@@ -34,6 +45,10 @@ type HqState = {
   caja: CajaRow[];
   /** dateKey YYYY-MM-DD → activityId → done */
   dayLog: Record<string, Record<string, boolean>>;
+  /** Notas libres por día */
+  dayNotes: Record<string, string>;
+  /** Snapshots oficiales al "cerrar el día" */
+  daySnapshots: Record<string, DaySnapshot>;
   /** ISO timestamp de la última review semanal cerrada */
   lastReviewAt: string | null;
   /** Burn mensual extra que el founder carga a mano (ARS) */
@@ -52,6 +67,8 @@ type HqState = {
   removeCajaRow: (id: string) => void;
   syncMpIntoCaja: (b: MpBalance) => void;
   toggleDayActivity: (date: string, activityId: string) => void;
+  setDayNote: (date: string, note: string) => void;
+  closeDay: (snapshot: DaySnapshot) => void;
   markReview: () => void;
   setExtraMonthlyBurnArs: (n: number) => void;
   reset: () => void;
@@ -84,6 +101,8 @@ export const useHq = create<HqState>()(
       mpBalance: null,
       caja: DEFAULT_CAJA,
       dayLog: {},
+      dayNotes: {},
+      daySnapshots: {},
       lastReviewAt: null,
       extraMonthlyBurnArs: 0,
       toggle: (id) => set((s) => ({ done: { ...s.done, [id]: !s.done[id] } })),
@@ -132,6 +151,18 @@ export const useHq = create<HqState>()(
           day[activityId] = !day[activityId];
           return { dayLog: { ...s.dayLog, [date]: day } };
         }),
+      setDayNote: (date, note) =>
+        set((s) => ({
+          dayNotes: { ...s.dayNotes, [date]: note },
+        })),
+      closeDay: (snapshot) =>
+        set((s) => ({
+          daySnapshots: { ...s.daySnapshots, [snapshot.date]: snapshot },
+          dayNotes: {
+            ...s.dayNotes,
+            [snapshot.date]: snapshot.note || s.dayNotes[snapshot.date] || "",
+          },
+        })),
       markReview: () => set({ lastReviewAt: new Date().toISOString() }),
       setExtraMonthlyBurnArs: (extraMonthlyBurnArs) => set({ extraMonthlyBurnArs }),
       reset: () =>
@@ -146,6 +177,8 @@ export const useHq = create<HqState>()(
           mpBalance: null,
           caja: DEFAULT_CAJA,
           dayLog: {},
+          dayNotes: {},
+          daySnapshots: {},
           lastReviewAt: null,
           extraMonthlyBurnArs: 0,
         }),

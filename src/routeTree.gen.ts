@@ -7,6 +7,7 @@ import { Route as YoutubeRoute } from "./routes/youtube";
 import { Route as OsRoute } from "./routes/os";
 import { Route as CeoRoute } from "./routes/ceo";
 import { Route as TrackerRoute } from "./routes/tracker";
+import { Route as RegistrosRoute } from "./routes/registros";
 
 const indexRoute = IndexRoute.update({ id: "/", path: "/", getParentRoute: () => rootRoute });
 const tareasRoute = TareasRoute.update({ id: "/tareas", path: "/tareas", getParentRoute: () => rootRoute });
@@ -16,6 +17,7 @@ const youtubeRoute = YoutubeRoute.update({ id: "/youtube", path: "/youtube", get
 const osRoute = OsRoute.update({ id: "/os", path: "/os", getParentRoute: () => rootRoute });
 const ceoRoute = CeoRoute.update({ id: "/ceo", path: "/ceo", getParentRoute: () => rootRoute });
 const trackerRoute = TrackerRoute.update({ id: "/tracker", path: "/tracker", getParentRoute: () => rootRoute });
+const registrosRoute = RegistrosRoute.update({ id: "/registros", path: "/registros", getParentRoute: () => rootRoute });
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -26,4 +28,5 @@ export const routeTree = rootRoute.addChildren([
   osRoute,
   ceoRoute,
   trackerRoute,
+  registrosRoute,
 ]);
