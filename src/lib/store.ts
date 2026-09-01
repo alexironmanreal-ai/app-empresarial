@@ -32,6 +32,8 @@ type HqState = {
   mpToken: string;
   mpBalance: MpBalance | null;
   caja: CajaRow[];
+  /** dateKey YYYY-MM-DD → activityId → done */
+  dayLog: Record<string, Record<string, boolean>>;
   toggle: (id: string) => void;
   setDone: (id: string, value: boolean) => void;
   setProfile: (p: Partial<Profile>) => void;
@@ -45,6 +47,7 @@ type HqState = {
   addCajaRow: (name: string, ars: number) => void;
   removeCajaRow: (id: string) => void;
   syncMpIntoCaja: (b: MpBalance) => void;
+  toggleDayActivity: (date: string, activityId: string) => void;
   reset: () => void;
 };
 
@@ -74,6 +77,7 @@ export const useHq = create<HqState>()(
       mpToken: "",
       mpBalance: null,
       caja: DEFAULT_CAJA,
+      dayLog: {},
       toggle: (id) => set((s) => ({ done: { ...s.done, [id]: !s.done[id] } })),
       setDone: (id, value) => set((s) => ({ done: { ...s.done, [id]: value } })),
       setProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
@@ -114,6 +118,12 @@ export const useHq = create<HqState>()(
               : [row, ...s.caja],
           };
         }),
+      toggleDayActivity: (date, activityId) =>
+        set((s) => {
+          const day = { ...(s.dayLog[date] ?? {}) };
+          day[activityId] = !day[activityId];
+          return { dayLog: { ...s.dayLog, [date]: day } };
+        }),
       reset: () =>
         set({
           done: {},
@@ -125,6 +135,7 @@ export const useHq = create<HqState>()(
           mpToken: "",
           mpBalance: null,
           caja: DEFAULT_CAJA,
+          dayLog: {},
         }),
     }),
     { name: "axion-hq-v3" },
