@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarDays,
   Cpu,
+  Handshake,
   LayoutDashboard,
   ListChecks,
   NotebookPen,
@@ -25,6 +26,7 @@ const NAV = [
   { to: "/tareas", label: "Tareas", icon: ListChecks },
   { to: "/tracker", label: "365", icon: CalendarDays },
   { to: "/registros", label: "Registros", icon: NotebookPen },
+  { to: "/pipeline", label: "Pipeline", icon: Handshake },
   { to: "/empresa", label: "Empresa", icon: Building2 },
   { to: "/finanzas", label: "Plata", icon: Wallet },
   { to: "/youtube", label: "YouTube", icon: Youtube },
@@ -175,14 +177,11 @@ function SettingsDialog() {
               value={mpToken}
               onChange={(e) => setMpToken(e.target.value)}
             />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
-              Developers → Tu aplicación → Credenciales de producción → Access Token.
-            </p>
           </div>
 
           <h2 className="pt-2 font-display text-xl">YouTube API</h2>
           <div>
-            <Label>API Key (Google Cloud)</Label>
+            <Label>API Key</Label>
             <Input
               className="mt-1.5 font-mono text-xs"
               type="password"
@@ -192,17 +191,13 @@ function SettingsDialog() {
             />
           </div>
           <div>
-            <Label>Canal · handle, URL o Channel ID</Label>
+            <Label>Canal</Label>
             <Input
               className="mt-1.5 font-mono text-xs"
-              placeholder="@tuCanal o UCxxxxxxxx"
+              placeholder="@tuCanal"
               value={ytChannelInput}
               onChange={(e) => setYtChannelInput(e.target.value)}
             />
-            <p className="mt-1.5 text-[11px] leading-relaxed text-subtle">
-              Google Cloud → APIs → habilitar YouTube Data API v3 → Credenciales → API key.
-              Se guarda solo en este navegador.
-            </p>
           </div>
 
           <Button

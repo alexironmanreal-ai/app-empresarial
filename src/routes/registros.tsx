@@ -16,6 +16,7 @@ import {
 } from "@/lib/store";
 import { TASKS } from "@/lib/data";
 import { ars } from "@/lib/format";
+import { downloadCsv, toCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -40,7 +41,6 @@ function RegistrosPage() {
   const [selected, setSelected] = useState(today);
   const [noteDraft, setNoteDraft] = useState(dayNotes[today] ?? "");
 
-  // Todos los días que tienen log, nota o snapshot + hoy
   const days = useMemo(() => {
     const keys = new Set<string>([
       ...Object.keys(dayLog),
@@ -48,7 +48,7 @@ function RegistrosPage() {
       ...Object.keys(daySnapshots),
       today,
     ]);
-    return Array.from(keys).sort((a, b) => (a < b ? 1 : -1)); // más reciente primero
+    return Array.from(keys).sort((a, b) => (a < b ? 1 : -1));
   }, [dayLog, dayNotes, daySnapshots, today]);
 
   const selectedDate = parseKey(selected);
@@ -86,6 +86,38 @@ function RegistrosPage() {
     setDayNote(selected, noteDraft.trim());
   }
 
+  function exportCsv() {
+    const headers = [
+      "fecha",
+      "progreso_pct",
+      "nota",
+      "cerrado",
+      "company_pct",
+      "p0_open",
+      "caja_ars",
+    ];
+    const rows = days.map((k) => {
+      const snap = daySnapshots[k];
+      return [
+        k,
+        Math.round(dayProgress(k, dayLog) * 100),
+        dayNotes[k] ?? "",
+        snap ? "si" : "no",
+        snap ? Math.round(snap.companyPct * 100) : "",
+        snap?.p0Open ?? "",
+        snap?.cajaArs ?? "",
+      ];
+    });
+    downloadCsv(`sentinel-registros-${today}.csv`, toCsv(headers, rows));
+  }
+
+  function exportCajaCsv() {
+    const headers = ["id", "cuenta", "origen", "ars"];
+    const rows = caja.map((r) => [r.id, r.name, r.source, r.ars]);
+    rows.push(["total", "Total", "", cajaTotalArs(caja)]);
+    downloadCsv(`sentinel-caja-${today}.csv`, toCsv(headers, rows));
+  }
+
   const completedDays = days.filter((k) => dayProgress(k, dayLog) >= 1).length;
   const registeredDays = Object.keys(daySnapshots).length;
 
@@ -97,18 +129,22 @@ function RegistrosPage() {
         </p>
         <h1 className="mt-1 font-display text-4xl sm:text-5xl">Registros</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
-          Cada día que marcás actividades en el Tracker queda guardado para siempre.
-          Acá podés ver el historial, agregar notas y cerrar el día con un snapshot
-          (caja, P0, % empresa).
+          Historial diario, notas y cierre con snapshot. Exportá CSV de backup.
         </p>
-        <p className="mt-2 font-mono text-[12px] text-subtle">
-          {days.length} días con actividad · {completedDays} al 100% ·{" "}
-          {registeredDays} cerrados con snapshot
-        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <p className="font-mono text-[12px] text-subtle">
+            {days.length} días · {completedDays} al 100% · {registeredDays} cerrados
+          </p>
+          <Button size="sm" variant="secondary" onClick={exportCsv}>
+            Export CSV registros
+          </Button>
+          <Button size="sm" variant="secondary" onClick={exportCajaCsv}>
+            Export CSV caja
+          </Button>
+        </div>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-5">
-        {/* Lista de días */}
         <aside className="lg:col-span-2">
           <h2 className="font-display text-xl">Días</h2>
           <ul className="mt-3 max-h-[28rem] space-y-1 overflow-y-auto pr-1">
@@ -169,15 +205,9 @@ function RegistrosPage() {
               );
             })}
           </ul>
-          {days.length === 0 ? (
-            <p className="mt-3 text-sm text-muted">
-              Todavía no hay registros. Marcá actividades en Tracker.
-            </p>
-          ) : null}
         </aside>
 
-        {/* Detalle del día */}
-        <section className="lg:col-span-3 space-y-5">
+        <section className="space-y-5 lg:col-span-3">
           <div>
             <h2 className="font-display text-2xl">
               {WEEKDAY_LABEL[selectedDate.getDay()]}{" "}
@@ -196,10 +226,12 @@ function RegistrosPage() {
             </p>
           </div>
 
-          {/* Snapshot si existe */}
           {snapshot ? (
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <SnapCard label="Empresa" value={`${Math.round(snapshot.companyPct * 100)}%`} />
+              <SnapCard
+                label="Empresa"
+                value={`${Math.round(snapshot.companyPct * 100)}%`}
+              />
               <SnapCard label="P0 abiertos" value={String(snapshot.p0Open)} />
               <SnapCard label="Caja" value={ars(snapshot.cajaArs)} />
               <SnapCard
@@ -209,7 +241,6 @@ function RegistrosPage() {
             </div>
           ) : null}
 
-          {/* Actividades del día */}
           <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
             <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
               Actividades registradas
@@ -247,19 +278,15 @@ function RegistrosPage() {
                 );
               })}
             </ul>
-            <p className="mt-3 text-[11px] text-subtle">
-              Para marcar/desmarcar usá el Tracker. Acá solo se consulta el historial.
-            </p>
           </div>
 
-          {/* Nota del día */}
           <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
             <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
               Nota del día
             </p>
             <textarea
-              className="mt-2 w-full min-h-[100px] resize-y rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg placeholder:text-subtle focus:outline-none focus:ring-1 focus:ring-accent"
-              placeholder="Qué hiciste, qué trabó, qué cerraste, cómo te sentiste…"
+              className="mt-2 min-h-[100px] w-full resize-y rounded-lg border border-border bg-bg px-3 py-2 text-sm text-fg placeholder:text-subtle focus:outline-none focus:ring-1 focus:ring-accent"
+              placeholder="Qué hiciste, qué trabó…"
               value={noteDraft}
               onChange={(e) => setNoteDraft(e.target.value)}
             />
@@ -271,12 +298,6 @@ function RegistrosPage() {
                 {snapshot ? "Actualizar cierre del día" : "Cerrar / registrar día"}
               </Button>
             </div>
-            {note && note !== noteDraft ? (
-              <p className="mt-2 text-[11px] text-subtle">
-                Nota guardada distinta al borrador — guardá o cerrá el día para
-                actualizar.
-              </p>
-            ) : null}
           </div>
         </section>
       </div>
