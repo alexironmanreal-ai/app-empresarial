@@ -12,7 +12,6 @@ import { cn } from "@/lib/utils";
 export function TaskPanel({ task }: { task: Task }) {
   const done = useHq((s) => s.done);
   const toggle = useHq((s) => s.toggle);
-  const currency = useHq((s) => s.currency);
   const [open, setOpen] = useState(false);
   const complete = isTaskComplete(
     task.id,
@@ -47,7 +46,7 @@ export function TaskPanel({ task }: { task: Task }) {
             <Badge tone={task.priority}>{task.priority.toUpperCase()}</Badge>
             <Badge>{CATEGORY_LABEL[task.category]}</Badge>
             <span className="font-mono text-[11px] text-subtle">
-              {daysLabel(task.days)} · {money(task.costUsd, currency)}
+              {daysLabel(task.days)} · {money(task.costUsd)}
             </span>
           </div>
           <h3
@@ -78,13 +77,13 @@ export function TaskPanel({ task }: { task: Task }) {
         <div className="space-y-5 border-t border-border px-4 pb-5 pt-4 sm:px-5">
           <div className="grid gap-3 sm:grid-cols-3">
             <Stat
-              label="Costo"
-              value={money(task.costUsd, currency)}
+              label="Costo · ARS"
+              value={money(task.costUsd)}
               hint={task.spendNote}
             />
             <Stat
-              label="Puede cobrar"
-              value={task.chargeUsd ? money(task.chargeUsd, currency) : "—"}
+              label="Puede cobrar · ARS"
+              value={task.chargeUsd ? money(task.chargeUsd) : "—"}
               hint={task.chargeNote}
             />
             <Stat
@@ -146,7 +145,7 @@ export function TaskPanel({ task }: { task: Task }) {
           </p>
 
           <ChartShell
-            title="Valor a 6 meses · USD k"
+            title="Valor a 6 meses · ARS"
             caption="Línea llena: si lo cerrás ahora. Punteada: si lo postergás."
             height={200}
           >

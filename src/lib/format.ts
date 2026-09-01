@@ -1,15 +1,3 @@
-const USD = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
-
-const USD_DEC = new Intl.NumberFormat("es-AR", {
-  style: "currency",
-  currency: "USD",
-  maximumFractionDigits: 0,
-});
-
 const ARS = new Intl.NumberFormat("es-AR", {
   style: "currency",
   currency: "ARS",
@@ -18,30 +6,50 @@ const ARS = new Intl.NumberFormat("es-AR", {
 
 const NUM = new Intl.NumberFormat("es-AR");
 
+/** Tipo de cambio fijo interno (los datos siguen en USD y se convierten al mostrar). */
 export const ARS_PER_USD = 1400;
 
+export function toArs(usdAmount: number) {
+  return usdAmount * ARS_PER_USD;
+}
+
+export function ars(n: number) {
+  return ARS.format(n);
+}
+
+/** Cualquier monto guardado en USD → texto en ARS */
+export function arsFromUsd(usdAmount: number) {
+  return ARS.format(toArs(usdAmount));
+}
+
+/** @deprecated alias — siempre ARS */
 export function usd(n: number) {
-  return USD.format(n);
+  return arsFromUsd(n);
 }
 
 export function usdDec(n: number) {
-  return USD_DEC.format(n);
+  return arsFromUsd(n);
 }
 
-export function arsFromUsd(n: number) {
-  return ARS.format(n * ARS_PER_USD);
-}
-
-export function money(n: number, currency: "USD" | "ARS") {
-  return currency === "ARS" ? arsFromUsd(n) : usd(n);
+/** Siempre muestra ARS (ignora el flag de moneda). */
+export function money(n: number, _currency?: "USD" | "ARS") {
+  return arsFromUsd(n);
 }
 
 export function compactUsd(n: number) {
+  return compactArs(toArs(n));
+}
+
+export function compactArs(n: number) {
   const abs = Math.abs(n);
   const sign = n < 0 ? "-" : "";
-  if (abs >= 1_000_000) return `${sign}USD ${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)} M`;
-  if (abs >= 1000) return `${sign}USD ${(abs / 1000).toFixed(abs >= 10_000 ? 0 : 1)} k`;
-  return usd(n);
+  if (abs >= 1_000_000_000)
+    return `${sign}$ ${(abs / 1_000_000_000).toFixed(1)} B`;
+  if (abs >= 1_000_000)
+    return `${sign}$ ${(abs / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)} M`;
+  if (abs >= 1000)
+    return `${sign}$ ${(abs / 1000).toFixed(abs >= 10_000 ? 0 : 1)} mil`;
+  return ars(n);
 }
 
 export function num(n: number) {

@@ -16,10 +16,10 @@ export const GAPS: Gap[] = [
 ];
 
 export const INCOME: IncomeStream[] = [
-  { id: "retainer", name: "Retainer CEO / arquitectura", when: "Desde día 14", price: "USD 2.5k–4.5k/mes", y1: 22000, y5: 72000, y10: 120000, notes: "Ancla de caja" },
-  { id: "yt", name: "YouTube + sponsors", when: "Mes 6+", price: "CPM + deals", y1: 3000, y5: 60000, y10: 200000, notes: "Escala con subs" },
-  { id: "product", name: "Producto digital / curso", when: "Mes 4+", price: "USD 69–200", y1: 4000, y5: 40000, y10: 120000, notes: "Sin vender horas" },
-  { id: "os-lic", name: "Licencias OS", when: "Año 2+", price: "USD 20–200/mes", y1: 0, y5: 80000, y10: 500000, notes: "Cuando haya usuarios" },
+  { id: "retainer", name: "Retainer CEO / arquitectura", when: "Desde día 14", price: "ARS 3.500.000–6.300.000/mes", y1: 22000, y5: 72000, y10: 120000, notes: "Ancla de caja" },
+  { id: "yt", name: "YouTube + sponsors", when: "Mes 6+", price: "CPM + deals en ARS", y1: 3000, y5: 60000, y10: 200000, notes: "Escala con subs" },
+  { id: "product", name: "Producto digital / curso", when: "Mes 4+", price: "ARS 96.600–280.000", y1: 4000, y5: 40000, y10: 120000, notes: "Sin vender horas" },
+  { id: "os-lic", name: "Licencias OS", when: "Año 2+", price: "ARS 28.000–280.000/mes", y1: 0, y5: 80000, y10: 500000, notes: "Cuando haya usuarios" },
 ];
 
 export const EXPENSES: ExpenseItem[] = [
@@ -82,12 +82,12 @@ export const OS_PHASES = [
 ];
 
 export const RATE_CARD = [
-  { name: "Mentoría founder", price: "USD 900", desc: "4 semanas · 4 llamadas · oferta y calendario" },
-  { name: "Sprint diagnóstico", price: "USD 3.500", desc: "5 días · plan de 90 días" },
-  { name: "Retainer LATAM", price: "USD 2.500/mes", desc: "8 h · decisiones + review" },
-  { name: "Retainer US-EU", price: "USD 4.500/mes", desc: "8 h · en inglés" },
-  { name: "Integración YouTube", price: "USD 400/video", desc: "60–90 s nativos" },
-  { name: "Kit founder", price: "USD 69", desc: "Templates spec + rate card + checklist" },
+  { name: "Mentoría founder", price: "ARS 1.260.000", desc: "4 semanas · 4 llamadas · oferta y calendario" },
+  { name: "Sprint diagnóstico", price: "ARS 4.900.000", desc: "5 días · plan de 90 días" },
+  { name: "Retainer LATAM", price: "ARS 3.500.000/mes", desc: "8 h · decisiones + review" },
+  { name: "Retainer US-EU", price: "ARS 6.300.000/mes", desc: "8 h · en inglés" },
+  { name: "Integración YouTube", price: "ARS 560.000/video", desc: "60–90 s nativos" },
+  { name: "Kit founder", price: "ARS 96.600", desc: "Templates spec + rate card + checklist" },
 ];
 
 export const CEO_CADENCE = [

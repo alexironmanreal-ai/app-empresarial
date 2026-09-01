@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { briefing } from "@/lib/briefing";
-import { GAPS, TASKS, WEALTH, YT_MILESTONES } from "@/lib/data";
-import { compactUsd, daysLabel, money } from "@/lib/format";
+import { GAPS, TASKS, WEALTH } from "@/lib/data";
+import { compactUsd, daysLabel, money, toArs } from "@/lib/format";
 import {
   companyScore,
   isTaskComplete,
@@ -12,15 +12,12 @@ import {
 import { ChartShell, CompareArea, WealthChart } from "@/components/chart-block";
 import { Ring } from "@/components/ring";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 
 export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
   const done = useHq((s) => s.done);
   const profile = useHq((s) => s.profile);
-  const currency = useHq((s) => s.currency);
   const score = companyScore(done);
   const memo = briefing(profile, done);
   const p0 = scoreByPriority(done, "p0");
@@ -43,7 +40,14 @@ function Home() {
   const gapChart = GAPS.map((g) => ({
     label: g.area.split(" ")[0] ?? g.area,
     done: 0,
-    skip: g.costUsd,
+    skip: toArs(g.costUsd),
+  }));
+
+  const wealthArs = WEALTH.map((w) => ({
+    year: w.year,
+    conservative: toArs(w.conservative),
+    base: toArs(w.base),
+    optimistic: toArs(w.optimistic),
   }));
 
   return (
@@ -83,12 +87,12 @@ function Home() {
           <p className="mt-1 text-sm text-muted">Máx. {daysLabel(daysP0)} para cerrar el bloque</p>
         </div>
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Wealth año 5</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Wealth año 5 · ARS</p>
           <p className="mt-2 font-display text-3xl tabular-nums">{compactUsd(wealth5.base)}</p>
           <p className="mt-1 text-sm text-muted">Escenario base</p>
         </div>
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Wealth año 10</p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Wealth año 10 · ARS</p>
           <p className="mt-2 font-display text-3xl tabular-nums">{compactUsd(wealth10.base)}</p>
           <p className="mt-1 text-sm text-muted">Escenario base</p>
         </div>
@@ -113,7 +117,7 @@ function Home() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge tone={t.priority}>{t.priority.toUpperCase()}</Badge>
                     <span className="font-mono text-[11px] text-subtle">
-                      {daysLabel(t.days)} · {money(t.costUsd, currency)}
+                      {daysLabel(t.days)} · {money(t.costUsd)}
                     </span>
                   </div>
                   <p className="mt-2 font-display text-xl">{t.title}</p>
@@ -126,7 +130,7 @@ function Home() {
         </div>
         <div className="lg:col-span-2">
           <ChartShell
-            title="Costo de lo que falta · USD"
+            title="Costo de lo que falta · ARS"
             caption="No es el presupuesto del OS. Es el costo de existir."
             height={260}
           >
@@ -139,7 +143,6 @@ function Home() {
         <h2 className="font-display text-2xl">Qué falta para ser empresa</h2>
         <p className="mt-1 max-w-2xl text-sm text-muted">
           El backup muestra visión (OS + marca + founder). No muestra CUIT, tarifa, ni un hello en QEMU.
-          Abajo, el hueco y cuánto tarda en cerrarse.
         </p>
         <div className="mt-4 overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
           <table className="w-full min-w-[640px] text-left text-sm">
@@ -149,7 +152,7 @@ function Home() {
                 <th className="px-4 py-3 font-medium">Hoy</th>
                 <th className="px-4 py-3 font-medium">Falta</th>
                 <th className="px-4 py-3 font-medium">Tiempo</th>
-                <th className="px-4 py-3 font-medium">Costo</th>
+                <th className="px-4 py-3 font-medium">Costo ARS</th>
               </tr>
             </thead>
             <tbody>
@@ -159,7 +162,7 @@ function Home() {
                   <td className="px-4 py-3 text-muted">{g.now}</td>
                   <td className="px-4 py-3">{g.missing}</td>
                   <td className="px-4 py-3 font-mono text-[12px]">{g.time}</td>
-                  <td className="px-4 py-3 font-mono text-[12px]">{money(g.costUsd, currency)}</td>
+                  <td className="px-4 py-3 font-mono text-[12px]">{money(g.costUsd)}</td>
                 </tr>
               ))}
             </tbody>
@@ -169,14 +172,14 @@ function Home() {
 
       <section>
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-2xl">Proyección de wealth</h2>
+          <h2 className="font-display text-2xl">Proyección de wealth · ARS</h2>
           <Link to="/finanzas" className="text-sm text-muted hover:text-fg">
             Ver finanzas
           </Link>
         </div>
         <div className="mt-4">
-          <ChartShell title="USD acumulado" height={280}>
-            <WealthChart data={WEALTH} />
+          <ChartShell title="ARS acumulado" height={280}>
+            <WealthChart data={wealthArs} />
           </ChartShell>
         </div>
       </section>
