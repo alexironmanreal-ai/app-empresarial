@@ -1,19 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #09090b;
-  --color-surface: #111114;
-  --color-elevated: #1a1a1f;
-  --color-fg: #f2f1ee;
-  --color-muted: #9a9aa3;
-  --color-subtle: #6e6e76;
-  --color-accent: #c5cdd8;
-  --color-accent-fg: #09090b;
-  --color-border: rgb(242 241 238 / 0.1);
-  --color-ok: #8aa58c;
-  --color-warn: #c4a574;
+  --color-bg: #07070a;
+  --color-surface: #0e0e12;
+  --color-elevated: #16161c;
+  --color-fg: #f4f0e8;
+  --color-muted: #a39e94;
+  --color-subtle: #6f6a62;
+  --color-accent: #c4a574;
+  --color-accent-fg: #0a0908;
+  --color-border: rgb(196 165 116 / 0.12);
+  --color-ok: #8fbc98;
+  --color-warn: #d4a574;
   --color-danger: #c47a72;
-  --color-ring: #c5cdd8;
+  --color-ring: #c4a574;
   --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Newsreader", ui-serif, Georgia, "Times New Roman", serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
@@ -21,8 +21,8 @@
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
-  --shadow-border: 0 0 0 1px rgb(255 255 255 / 0.08);
-  --shadow-border-hover: 0 0 0 1px rgb(255 255 255 / 0.14);
+  --shadow-border: 0 0 0 1px rgb(196 165 116 / 0.1), 0 12px 40px rgb(0 0 0 / 0.35);
+  --shadow-border-hover: 0 0 0 1px rgb(196 165 116 / 0.22), 0 16px 48px rgb(0 0 0 / 0.4);
 }
 
 @layer base {
@@ -59,7 +59,7 @@
 
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgb(255 255 255 / 0.12) transparent;
+    scrollbar-color: rgb(196 165 116 / 0.25) transparent;
   }
 }
 

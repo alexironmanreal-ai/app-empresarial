@@ -24,6 +24,11 @@ function usdToArs(usd: number) {
   return usd * ARS_PER_USD;
 }
 
+function gapLabel(gap: number) {
+  if (gap <= 0) return "Alcanzado / superado";
+  return ars(gap);
+}
+
 function Finanzas() {
   const scenario = useHq((s) => s.scenario);
   const setScenario = useHq((s) => s.setScenario);
@@ -47,6 +52,13 @@ function Finanzas() {
     conservative: usdToArs(w.conservative),
     base: usdToArs(w.base),
     optimistic: usdToArs(w.optimistic),
+  }));
+
+  const gapRows = wealthArs.map((w) => ({
+    year: w.year,
+    target: w[scenario],
+    gap: Math.max(0, w[scenario] - total),
+    pct: w[scenario] > 0 ? Math.min(100, (total / w[scenario]) * 100) : 0,
   }));
 
   async function syncMp() {
@@ -77,7 +89,6 @@ function Finanzas() {
         </p>
       </header>
 
-      {/* Caja ARS */}
       <section>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -106,7 +117,7 @@ function Finanzas() {
           </p>
         ) : (
           <p className="mt-2 text-sm text-muted">
-            Sin sync aún. Access Token en <strong>Ajustes</strong> → Sincronizar.
+            Sin sync aún. Cargá saldos a mano o token en Ajustes (18+).
           </p>
         )}
 
@@ -202,7 +213,6 @@ function Finanzas() {
         </div>
       </section>
 
-      {/* Escenario */}
       <div className="flex flex-wrap gap-2">
         {(["conservative", "base", "optimistic"] as const).map((s) => (
           <button
@@ -223,7 +233,54 @@ function Finanzas() {
       </ChartShell>
       <p className="text-sm text-muted">{WEALTH_NOTES[scenario]}</p>
 
-      {/* Tabla proyección ARS */}
+      {/* Cuánto falta */}
+      <section>
+        <h2 className="font-display text-2xl">Cuánto falta · vs proyección</h2>
+        <p className="mt-1 text-sm text-muted">
+          Caja actual ({ars(total)}) contra el estimado del escenario{" "}
+          <span className="text-fg">
+            {scenario === "conservative"
+              ? "conservador"
+              : scenario === "base"
+                ? "base"
+                : "optimista"}
+          </span>
+          .
+        </p>
+        <div className="mt-4 overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
+          <table className="w-full min-w-[560px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-border text-[11px] uppercase tracking-[0.14em] text-subtle">
+                <th className="px-4 py-3">Año</th>
+                <th className="px-4 py-3 text-right">Meta ARS</th>
+                <th className="px-4 py-3 text-right">Caja hoy</th>
+                <th className="px-4 py-3 text-right">Falta</th>
+                <th className="px-4 py-3 text-right">Avance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {gapRows.map((r) => (
+                <tr key={r.year} className="border-b border-border/60">
+                  <td className="px-4 py-3 font-medium">Año {r.year}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">{ars(r.target)}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">{ars(total)}</td>
+                  <td
+                    className={`px-4 py-3 text-right font-mono tabular-nums ${
+                      r.gap <= 0 ? "text-ok" : "text-warn"
+                    }`}
+                  >
+                    {gapLabel(r.gap)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums text-muted">
+                    {r.pct.toFixed(1)}%
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <section>
         <h2 className="font-display text-2xl">Proyección por año · ARS</h2>
         <div className="mt-4 overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
