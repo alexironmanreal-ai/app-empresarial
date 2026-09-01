@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Printer } from "lucide-react";
 import { briefing } from "@/lib/briefing";
 import { GAPS, TASKS, WEALTH } from "@/lib/data";
 import { compactUsd, daysLabel, money, toArs } from "@/lib/format";
@@ -12,6 +12,8 @@ import {
 import { ChartShell, CompareArea, WealthChart } from "@/components/chart-block";
 import { Ring } from "@/components/ring";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { printDashboard } from "@/components/print-report";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -63,6 +65,15 @@ function Home() {
           <p className="mt-4 max-w-xl text-base leading-relaxed text-muted">
             {memo.body}
           </p>
+          <Button
+            className="mt-4 gap-2 no-print"
+            variant="secondary"
+            size="sm"
+            onClick={() => printDashboard()}
+          >
+            <Printer className="size-3.5" />
+            Imprimir / fotocopiar dashboard
+          </Button>
         </div>
         <div className="flex items-center gap-4 rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
           <Ring value={score} size={96} label="lista" />
