@@ -9,7 +9,12 @@ import {
   scoreByPriority,
   useHq,
 } from "@/lib/store";
-import { computeReality, runwayLabel } from "@/lib/reality";
+import {
+  computeReality,
+  registroHoyLabel,
+  reviewLabel,
+  runwayLabel,
+} from "@/lib/reality";
 import { ChartShell, CompareArea, WealthChart } from "@/components/chart-block";
 import { Ring } from "@/components/ring";
 import { Badge } from "@/components/ui/badge";
@@ -26,9 +31,19 @@ function Home() {
   const lastReviewAt = useHq((s) => s.lastReviewAt);
   const extraMonthlyBurnArs = useHq((s) => s.extraMonthlyBurnArs);
   const markReview = useHq((s) => s.markReview);
+  const dayLog = useHq((s) => s.dayLog);
+  const daySnapshots = useHq((s) => s.daySnapshots);
 
   const score = companyScore(done);
-  const reality = computeReality(caja, done, lastReviewAt, score, extraMonthlyBurnArs);
+  const reality = computeReality(
+    caja,
+    done,
+    lastReviewAt,
+    score,
+    extraMonthlyBurnArs,
+    dayLog,
+    daySnapshots,
+  );
   const memo = briefing(profile, done, reality);
   const p0 = scoreByPriority(done, "p0");
   const p1 = scoreByPriority(done, "p1");
@@ -66,6 +81,13 @@ function Home() {
       : reality.survivalTone === "warn"
         ? "text-warn"
         : "text-ok";
+
+  const registroTone =
+    reality.registroHoy === "cerrado"
+      ? "text-ok"
+      : reality.registroHoy === "parcial"
+        ? "text-warn"
+        : "text-danger";
 
   return (
     <div className="space-y-8">
@@ -119,8 +141,7 @@ function Home() {
         </div>
       </header>
 
-      {/* Realidad dura */}
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
             Caja total
@@ -152,7 +173,7 @@ function Home() {
         </div>
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-            Review
+            Review semanal
           </p>
           <p
             className={cn(
@@ -160,14 +181,27 @@ function Home() {
               reality.reviewOverdue ? "text-warn" : "text-ok",
             )}
           >
-            {reality.daysSinceReview === null
-              ? "Nunca"
-              : reality.daysSinceReview === 0
-                ? "Hoy"
-                : `${reality.daysSinceReview}d`}
+            {reviewLabel(reality.daysSinceReview)}
           </p>
           <p className="mt-1 text-sm text-muted">
-            {reality.reviewOverdue ? "Vencida — cerrala" : "Al día"}
+            {reality.reviewOverdue
+              ? "Vencida — cerrala"
+              : reality.daysSinceReview === 0
+                ? "Hecha hoy"
+                : "Dentro de la semana"}
+          </p>
+        </div>
+        <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+            Registro de hoy
+          </p>
+          <p className={cn("mt-2 font-display text-2xl sm:text-3xl", registroTone)}>
+            {registroHoyLabel(reality.registroHoy)}
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            {reality.registroHoy === "sin_registro"
+              ? "Tracker / Registros — pendiente"
+              : `${Math.round(reality.registroHoyProgress * 100)}% del plan del día`}
           </p>
         </div>
       </section>
@@ -180,7 +214,7 @@ function Home() {
           <p className="mt-2 font-display text-3xl tabular-nums">
             {compactUsd(wealth5.base)}
           </p>
-          <p className="mt-1 text-sm text-muted">Escenario base</p>
+          <p className="mt-1 text-sm text-muted">Escenario base · USD reales</p>
         </div>
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
@@ -189,7 +223,7 @@ function Home() {
           <p className="mt-2 font-display text-3xl tabular-nums">
             {compactUsd(wealth10.base)}
           </p>
-          <p className="mt-1 text-sm text-muted">Escenario base</p>
+          <p className="mt-1 text-sm text-muted">Escenario base · USD reales</p>
         </div>
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
           <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
@@ -281,7 +315,7 @@ function Home() {
           </Link>
         </div>
         <div className="mt-4">
-          <ChartShell title="ARS acumulado" height={280}>
+          <ChartShell title="Poder de compra (USD reales → ARS)" height={280}>
             <WealthChart data={wealthArs} />
           </ChartShell>
         </div>

@@ -2,12 +2,23 @@
  * Reality layer — números que importan para no morir.
  * No proyecciones de 10 años. Supervivencia y verdad.
  */
-import { EXPENSES } from "./data";
+import { EXPENSES, TASKS } from "./data";
 import { ARS_PER_USD } from "./format";
-import type { CajaRow } from "./store";
-import { cajaTotalArs } from "./store";
-import { TASKS } from "./data";
-import { isTaskComplete } from "./store";
+import type { CajaRow, DaySnapshot } from "./store";
+import { cajaTotalArs, isTaskComplete } from "./store";
+import { dateKey, dayProgress } from "./tracker";
+
+/** Inicio del día local (00:00) */
+export function startOfLocalDay(d = new Date()) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** Días calendario entre un ISO y hoy (0 = mismo día local, 1 = ayer, …) */
+export function calendarDaysSince(iso: string, now = new Date()): number {
+  const then = startOfLocalDay(new Date(iso));
+  const today = startOfLocalDay(now);
+  return Math.round((today.getTime() - then.getTime()) / 86_400_000);
+}
 
 /** Burn mensual estimado en ARS a partir de gastos recurrentes + buffer conservador */
 export function estimatedMonthlyBurnArs(extraMonthlyArs = 0): number {
@@ -16,10 +27,8 @@ export function estimatedMonthlyBurnArs(extraMonthlyArs = 0): number {
     const ars = e.usd * ARS_PER_USD;
     if (e.kind === "month") monthly += ars;
     else if (e.kind === "year") monthly += ars / 12;
-    // once se ignora para burn recurrente
   }
-  // Buffer mínimo de vida (comida, internet, transporte, imprevistos) si no hay gastos cargados
-  const floor = 350_000; // ARS/mes — ajustá si hace falta
+  const floor = 350_000; // ARS/mes
   return Math.max(monthly + extraMonthlyArs, floor);
 }
 
@@ -38,6 +47,8 @@ export function runwayLabel(days: number): string {
   return `${days} días · cómodo`;
 }
 
+export type RegistroHoyStatus = "sin_registro" | "parcial" | "cerrado";
+
 export type RealitySnapshot = {
   totalCajaArs: number;
   monthlyBurnArs: number;
@@ -45,8 +56,13 @@ export type RealitySnapshot = {
   p0Open: number;
   p0Total: number;
   companyPct: number;
+  /** Días calendario desde la última review semanal (0 = hoy) */
   daysSinceReview: number | null;
+  /** Vencida si nunca o >7 días calendario */
   reviewOverdue: boolean;
+  /** Estado del registro diario de HOY */
+  registroHoy: RegistroHoyStatus;
+  registroHoyProgress: number;
   survivalTone: "ok" | "warn" | "danger";
 };
 
@@ -56,6 +72,8 @@ export function computeReality(
   lastReviewAt: string | null,
   companyPct: number,
   extraMonthlyBurnArs = 0,
+  dayLog: Record<string, Record<string, boolean>> = {},
+  daySnapshots: Record<string, DaySnapshot> = {},
 ): RealitySnapshot {
   const totalCajaArs = cajaTotalArs(caja);
   const monthlyBurnArs = estimatedMonthlyBurnArs(extraMonthlyBurnArs);
@@ -69,14 +87,19 @@ export function computeReality(
   let daysSinceReview: number | null = null;
   let reviewOverdue = false;
   if (lastReviewAt) {
-    const then = new Date(lastReviewAt).getTime();
-    const now = Date.now();
-    daysSinceReview = Math.floor((now - then) / 86_400_000);
+    daysSinceReview = calendarDaysSince(lastReviewAt);
     reviewOverdue = daysSinceReview > 7;
   } else {
     reviewOverdue = true;
     daysSinceReview = null;
   }
+
+  const today = dateKey(new Date());
+  const progress = dayProgress(today, dayLog);
+  const hasSnap = !!daySnapshots[today];
+  let registroHoy: RegistroHoyStatus = "sin_registro";
+  if (hasSnap || progress >= 1) registroHoy = "cerrado";
+  else if (progress > 0) registroHoy = "parcial";
 
   let survivalTone: "ok" | "warn" | "danger" = "ok";
   if (days < 30 || p0Open >= 6) survivalTone = "danger";
@@ -91,6 +114,21 @@ export function computeReality(
     companyPct,
     daysSinceReview,
     reviewOverdue,
+    registroHoy,
+    registroHoyProgress: progress,
     survivalTone,
   };
+}
+
+export function reviewLabel(daysSince: number | null): string {
+  if (daysSince === null) return "Nunca";
+  if (daysSince === 0) return "Hoy";
+  if (daysSince === 1) return "Ayer";
+  return `${daysSince}d`;
+}
+
+export function registroHoyLabel(status: RegistroHoyStatus): string {
+  if (status === "cerrado") return "Cerrado";
+  if (status === "parcial") return "Parcial";
+  return "Sin registro";
 }
