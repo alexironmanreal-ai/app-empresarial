@@ -4,9 +4,16 @@ import { EXPENSES, INCOME, WEALTH, WEALTH_NOTES } from "@/lib/data";
 import { ARS_PER_USD } from "@/lib/format";
 import { fetchMercadoPagoBalance } from "@/lib/mercadopago";
 import { cajaTotalArs, useHq } from "@/lib/store";
+import {
+  computeReality,
+  estimatedMonthlyBurnArs,
+  runwayLabel,
+} from "@/lib/reality";
+import { companyScore } from "@/lib/store";
 import { ChartShell, WealthChart } from "@/components/chart-block";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/finanzas")({ component: Finanzas });
 
@@ -39,6 +46,10 @@ function Finanzas() {
   const addCajaRow = useHq((s) => s.addCajaRow);
   const removeCajaRow = useHq((s) => s.removeCajaRow);
   const syncMpIntoCaja = useHq((s) => s.syncMpIntoCaja);
+  const done = useHq((s) => s.done);
+  const lastReviewAt = useHq((s) => s.lastReviewAt);
+  const extraMonthlyBurnArs = useHq((s) => s.extraMonthlyBurnArs);
+  const setExtraMonthlyBurnArs = useHq((s) => s.setExtraMonthlyBurnArs);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +57,9 @@ function Finanzas() {
   const [newArs, setNewArs] = useState("");
 
   const total = cajaTotalArs(caja);
+  const score = companyScore(done);
+  const reality = computeReality(caja, done, lastReviewAt, score, extraMonthlyBurnArs);
+  const baseBurn = estimatedMonthlyBurnArs(0);
 
   const wealthArs = WEALTH.map((w) => ({
     year: w.year,
@@ -60,6 +74,13 @@ function Finanzas() {
     gap: Math.max(0, w[scenario] - total),
     pct: w[scenario] > 0 ? Math.min(100, (total / w[scenario]) * 100) : 0,
   }));
+
+  const toneClass =
+    reality.survivalTone === "danger"
+      ? "text-danger"
+      : reality.survivalTone === "warn"
+        ? "text-warn"
+        : "text-ok";
 
   async function syncMp() {
     if (!mpToken.trim()) {
@@ -81,13 +102,89 @@ function Finanzas() {
   return (
     <div className="space-y-8">
       <header>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-subtle">Plata · ARS</p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-subtle">
+          Plata · ARS
+        </p>
         <h1 className="mt-1 font-display text-4xl sm:text-5xl">Finanzas</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
-          Caja en pesos, Mercado Pago y proyección de la empresa en ARS
-          (1 USD = {ARS_PER_USD.toLocaleString("es-AR")} ARS).
+          Primero supervivencia (runway). Después proyecciones. 1 USD ={" "}
+          {ARS_PER_USD.toLocaleString("es-AR")} ARS.
         </p>
       </header>
+
+      {/* RUNWAY — lo que importa */}
+      <section
+        className={cn(
+          "rounded-xl border p-5 shadow-[var(--shadow-border)]",
+          reality.survivalTone === "danger"
+            ? "border-danger/40 bg-danger/10"
+            : reality.survivalTone === "warn"
+              ? "border-warn/40 bg-warn/10"
+              : "border-border bg-surface",
+        )}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+              Runway · supervivencia
+            </p>
+            <p className={cn("mt-2 font-display text-4xl tabular-nums", toneClass)}>
+              {Number.isFinite(reality.runwayDays)
+                ? `${reality.runwayDays} días`
+                : "∞"}
+            </p>
+            <p className="mt-1 text-sm text-muted">{runwayLabel(reality.runwayDays)}</p>
+          </div>
+          <div className="text-right">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+              Caja / Burn
+            </p>
+            <p className="mt-2 font-display text-xl tabular-nums">
+              {ars(reality.totalCajaArs)}
+            </p>
+            <p className="mt-0.5 font-mono text-sm text-muted">
+              burn ~{ars(reality.monthlyBurnArs)}/mes
+            </p>
+          </div>
+        </div>
+
+        {reality.survivalTone === "danger" ? (
+          <p className="mt-4 text-sm text-danger">
+            Menos de 30 días. Todo lo que no cierre caja o baje burn esta semana es
+            ruido. El OS y YouTube pueden esperar.
+          </p>
+        ) : reality.survivalTone === "warn" ? (
+          <p className="mt-4 text-sm text-warn">
+            Por debajo de 90 días o con P0 críticos abiertos. Priorizá ingresos y
+            cierre de gaps legales/fiscales.
+          </p>
+        ) : (
+          <p className="mt-4 text-sm text-muted">
+            Runway cómodo. No es excusa para no vender. Seguí cerrando P0 y
+            generando caja recurrente.
+          </p>
+        )}
+
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div>
+            <p className="mb-1 text-[11px] text-subtle">
+              Burn extra mensual (ARS) — comida, tools, etc.
+            </p>
+            <Input
+              className="h-9 w-40 font-mono"
+              type="number"
+              placeholder="0"
+              value={extraMonthlyBurnArs || ""}
+              onChange={(e) =>
+                setExtraMonthlyBurnArs(Number(e.target.value) || 0)
+              }
+            />
+          </div>
+          <p className="pb-2 font-mono text-[11px] text-subtle">
+            Base gastos data: {ars(baseBurn)} + extra
+          </p>
+        </div>
+      </section>
 
       <section>
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -104,12 +201,15 @@ function Finanzas() {
         </div>
 
         {error ? (
-          <p className="mt-3 rounded-lg bg-danger/15 px-3 py-2 text-sm text-danger">{error}</p>
+          <p className="mt-3 rounded-lg bg-danger/15 px-3 py-2 text-sm text-danger">
+            {error}
+          </p>
         ) : null}
 
         {mpBalance ? (
           <p className="mt-2 font-mono text-[11px] text-subtle">
-            MP · disponible {ars(mpBalance.availableArs)} · total {ars(mpBalance.totalArs)}
+            MP · disponible {ars(mpBalance.availableArs)} · total{" "}
+            {ars(mpBalance.totalArs)}
             {mpBalance.unavailableArs > 0
               ? ` · retenido ${ars(mpBalance.unavailableArs)}`
               : ""}{" "}
@@ -117,7 +217,7 @@ function Finanzas() {
           </p>
         ) : (
           <p className="mt-2 text-sm text-muted">
-            Sin sync aún. Cargá saldos a mano o token en Ajustes (18+).
+            Sin sync aún. Cargá saldos a mano o token en Ajustes.
           </p>
         )}
 
@@ -147,13 +247,17 @@ function Finanzas() {
                         type="number"
                         value={row.ars || ""}
                         onChange={(e) =>
-                          setCajaRow(row.id, { ars: Number(e.target.value) || 0 })
+                          setCajaRow(row.id, {
+                            ars: Number(e.target.value) || 0,
+                          })
                         }
                       />
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {row.source === "manual" && row.id !== "banco" && row.id !== "efectivo" ? (
+                    {row.source === "manual" &&
+                    row.id !== "banco" &&
+                    row.id !== "efectivo" ? (
                       <button
                         type="button"
                         className="text-xs text-subtle hover:text-danger"
@@ -220,10 +324,16 @@ function Finanzas() {
             type="button"
             onClick={() => setScenario(s)}
             className={`rounded-md px-3 py-1.5 text-sm ${
-              scenario === s ? "bg-accent text-accent-fg" : "bg-elevated text-muted"
+              scenario === s
+                ? "bg-accent text-accent-fg"
+                : "bg-elevated text-muted"
             }`}
           >
-            {s === "conservative" ? "Conservador" : s === "base" ? "Base" : "Optimista"}
+            {s === "conservative"
+              ? "Conservador"
+              : s === "base"
+                ? "Base"
+                : "Optimista"}
           </button>
         ))}
       </div>
@@ -233,7 +343,6 @@ function Finanzas() {
       </ChartShell>
       <p className="text-sm text-muted">{WEALTH_NOTES[scenario]}</p>
 
-      {/* Cuánto falta */}
       <section>
         <h2 className="font-display text-2xl">Cuánto falta · vs proyección</h2>
         <p className="mt-1 text-sm text-muted">
@@ -262,8 +371,12 @@ function Finanzas() {
               {gapRows.map((r) => (
                 <tr key={r.year} className="border-b border-border/60">
                   <td className="px-4 py-3 font-medium">Año {r.year}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">{ars(r.target)}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">{ars(total)}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">
+                    {ars(r.target)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">
+                    {ars(total)}
+                  </td>
                   <td
                     className={`px-4 py-3 text-right font-mono tabular-nums ${
                       r.gap <= 0 ? "text-ok" : "text-warn"
@@ -300,7 +413,9 @@ function Finanzas() {
                   <td className="px-4 py-3 text-right font-mono tabular-nums">
                     {ars(w.conservative)}
                   </td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">{ars(w.base)}</td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">
+                    {ars(w.base)}
+                  </td>
                   <td className="px-4 py-3 text-right font-mono tabular-nums">
                     {ars(w.optimistic)}
                   </td>
@@ -315,7 +430,10 @@ function Finanzas() {
         <h2 className="font-display text-2xl">Streams de ingreso · ARS</h2>
         <div className="mt-4 space-y-3">
           {INCOME.map((i) => (
-            <div key={i.id} className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+            <div
+              key={i.id}
+              className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]"
+            >
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="font-display text-xl">{i.name}</p>
                 <p className="font-mono text-[12px] text-subtle">{i.when}</p>
@@ -349,7 +467,9 @@ function Finanzas() {
                 <tr key={e.id} className="border-b border-border/60">
                   <td className="px-4 py-3">{e.name}</td>
                   <td className="px-4 py-3 text-muted">{e.kind}</td>
-                  <td className="px-4 py-3 text-right font-mono">{ars(usdToArs(e.usd))}</td>
+                  <td className="px-4 py-3 text-right font-mono">
+                    {ars(usdToArs(e.usd))}
+                  </td>
                   <td className="px-4 py-3 text-muted">{e.neededFor}</td>
                 </tr>
               ))}
