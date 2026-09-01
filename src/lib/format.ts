@@ -6,7 +6,11 @@ const ARS = new Intl.NumberFormat("es-AR", {
 
 const NUM = new Intl.NumberFormat("es-AR");
 
-/** Tipo de cambio fijo interno (los datos siguen en USD y se convierten al mostrar). */
+/**
+ * FX solo para *mostrar* montos guardados en USD.
+ * El wealth del modelo está en USD reales (poder de compra), no en ARS nominal a 10 años.
+ * Ajustá este número cuando quieras alinear la UI al dólar del momento.
+ */
 export const ARS_PER_USD = 1400;
 
 export function toArs(usdAmount: number) {
