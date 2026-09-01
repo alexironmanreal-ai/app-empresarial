@@ -11,8 +11,71 @@ import {
 } from "@/lib/tracker";
 import { useHq } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { ChartShell } from "@/components/chart-block";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { useId } from "react";
 
 export const Route = createFileRoute("/tracker")({ component: TrackerPage });
+
+function ProgressChart({ data }: { data: { label: string; dias: number; pct: number }[] }) {
+  const gid = useId().replace(/:/g, "");
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#c4a574" stopOpacity={0.4} />
+            <stop offset="100%" stopColor="#c4a574" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke="rgba(196,165,116,0.08)" vertical={false} />
+        <XAxis
+          dataKey="label"
+          tick={{ fontSize: 11, fill: "#6f6a62", fontFamily: "IBM Plex Mono, monospace" }}
+          axisLine={false}
+          tickLine={false}
+          interval="preserveStartEnd"
+          minTickGap={28}
+        />
+        <YAxis
+          tick={{ fontSize: 11, fill: "#6f6a62", fontFamily: "IBM Plex Mono, monospace" }}
+          axisLine={false}
+          tickLine={false}
+          width={36}
+          domain={[0, "auto"]}
+        />
+        <Tooltip
+          contentStyle={{
+            background: "#0e0e12",
+            border: "1px solid rgba(196,165,116,0.2)",
+            borderRadius: 12,
+            fontSize: 12,
+            color: "#f4f0e8",
+          }}
+          formatter={(value: number, name: string) =>
+            name === "pct" ? [`${value}%`, "Año"] : [value, "Días completos"]
+          }
+        />
+        <Area
+          type="monotone"
+          dataKey="dias"
+          name="dias"
+          stroke="#c4a574"
+          fill={`url(#${gid})`}
+          strokeWidth={2}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
 
 function TrackerPage() {
   const today = useMemo(() => {
@@ -52,25 +115,35 @@ function TrackerPage() {
     return list;
   }, [year, dayLog, todayKey]);
 
+  /** Avance acumulado: sube cada vez que un día queda al 100% */
+  const chartData = useMemo(() => {
+    let cum = 0;
+    const total = daysInYear(year);
+    const points: { label: string; dias: number; pct: number }[] = [];
+    // sample ~ every week + endpoints so the chart stays light
+    cells.forEach((c, i) => {
+      if (c.progress >= 1) cum += 1;
+      const isSample = i % 7 === 0 || c.key === todayKey || i === cells.length - 1;
+      if (isSample) {
+        points.push({
+          label: `${c.date.getDate()}/${c.date.getMonth() + 1}`,
+          dias: cum,
+          pct: Math.round((cum / total) * 1000) / 10,
+        });
+      }
+    });
+    return points;
+  }, [cells, year, todayKey]);
+
   const completedDays = cells.filter((c) => c.progress >= 1).length;
   const streak = useMemo(() => {
     let s = 0;
-    for (let i = cells.length - 1; i >= 0; i--) {
-      const c = cells[i];
-      if (c.key > todayKey) continue;
-      if (c.progress >= 1) s++;
-      else if (c.key === todayKey) continue;
-      else break;
-    }
-    // recount properly from today backwards
-    s = 0;
     let d = new Date(today);
     for (;;) {
       const k = dateKey(d);
       const p = dayProgress(k, dayLog);
       if (p >= 1) s++;
       else if (k === todayKey) {
-        /* today incomplete doesn't break past streak */
         d.setDate(d.getDate() - 1);
         continue;
       } else break;
@@ -78,7 +151,7 @@ function TrackerPage() {
       if (d.getFullYear() < year) break;
     }
     return s;
-  }, [cells, dayLog, today, todayKey, year]);
+  }, [dayLog, today, todayKey, year]);
 
   return (
     <div className="space-y-8">
@@ -96,7 +169,6 @@ function TrackerPage() {
         </p>
       </header>
 
-      {/* Grilla año */}
       <section>
         <h2 className="font-display text-2xl">Año</h2>
         <div className="mt-4 flex flex-wrap gap-1">
@@ -124,7 +196,14 @@ function TrackerPage() {
         </p>
       </section>
 
-      {/* Día seleccionado */}
+      <ChartShell
+        title="Avance acumulado"
+        caption="Sube cuando marcás todas las actividades de un día. Se actualiza solo."
+        height={240}
+      >
+        <ProgressChart data={chartData} />
+      </ChartShell>
+
       <section>
         <h2 className="font-display text-2xl">
           {WEEKDAY_LABEL[selected.getDay()]}{" "}
