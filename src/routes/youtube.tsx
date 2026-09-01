@@ -6,6 +6,7 @@ import { useHq } from "@/lib/store";
 import { fetchChannelStats, fetchRecentVideos } from "@/lib/youtube";
 import { ChartShell, SimpleLine } from "@/components/chart-block";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/youtube")({ component: Youtube });
@@ -17,6 +18,8 @@ function Youtube() {
   const ytStats = useHq((s) => s.ytStats);
   const ytVideos = useHq((s) => s.ytVideos);
   const setYtStats = useHq((s) => s.setYtStats);
+  const setYtApiKey = useHq((s) => s.setYtApiKey);
+  const setYtChannelInput = useHq((s) => s.setYtChannelInput);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,29 +30,32 @@ function Youtube() {
     views: m.viewsMonth,
   }));
 
-  // Próximo hito vs reality
   const nextMilestone = ytStats
     ? YT_MILESTONES.find((m) => m.subs > ytStats.subscriberCount) ??
       YT_MILESTONES[YT_MILESTONES.length - 1]
     : YT_MILESTONES[0];
 
+  const keyOk = ytApiKey.trim().length > 10;
+  const channelOk = (ytChannelInput.trim() || profile.youtube).trim().length > 0;
+
   async function sync() {
-    if (!ytApiKey.trim()) {
-      setError("Configurá la API key de YouTube en Ajustes.");
+    const key = ytApiKey.trim();
+    if (!key) {
+      setError("Pegá la API key abajo (campo API Key) y volvé a sincronizar.");
       return;
     }
-    const channel = ytChannelInput.trim() || profile.youtube;
+    const channel = (ytChannelInput.trim() || profile.youtube).trim();
     if (!channel) {
-      setError("Indicá el handle o Channel ID en Ajustes (campo YouTube canal).");
+      setError("Pegá el handle del canal (@the-new-order-k1y) abajo.");
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const stats = await fetchChannelStats(ytApiKey, channel);
+      const stats = await fetchChannelStats(key, channel);
       let videos = [] as Awaited<ReturnType<typeof fetchRecentVideos>>;
       try {
-        videos = await fetchRecentVideos(ytApiKey, stats.channelId, 6);
+        videos = await fetchRecentVideos(key, stats.channelId, 6);
       } catch {
         /* videos opcionales */
       }
@@ -72,8 +78,7 @@ function Youtube() {
             {ytStats?.title || profile.youtube}
           </h1>
           <p className="mt-3 max-w-2xl text-sm text-muted">
-            Stats reales del canal + hitos proyectados. Sincronizá con YouTube Data
-            API v3 (API key en Ajustes).
+            Stats reales del canal + hitos. Configurá la key acá mismo y sincronizá.
           </p>
         </div>
         <Button size="sm" onClick={sync} disabled={loading}>
@@ -81,11 +86,60 @@ function Youtube() {
         </Button>
       </header>
 
+      {/* Config en la misma pantalla */}
+      <section className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+        <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+          Conexión YouTube Data API
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="mb-1 text-[11px] text-subtle">API Key (Google Cloud)</p>
+            <Input
+              className="font-mono text-xs"
+              type="password"
+              placeholder="AIza…"
+              value={ytApiKey}
+              onChange={(e) => setYtApiKey(e.target.value)}
+              autoComplete="off"
+            />
+            <p className="mt-1 font-mono text-[11px]">
+              {keyOk ? (
+                <span className="text-ok">Key cargada ({ytApiKey.trim().length} chars)</span>
+              ) : (
+                <span className="text-warn">Sin key — pegala acá</span>
+              )}
+            </p>
+          </div>
+          <div>
+            <p className="mb-1 text-[11px] text-subtle">Canal · @handle o UC…</p>
+            <Input
+              className="font-mono text-xs"
+              placeholder="@the-new-order-k1y"
+              value={ytChannelInput}
+              onChange={(e) => setYtChannelInput(e.target.value)}
+              autoComplete="off"
+            />
+            <p className="mt-1 font-mono text-[11px]">
+              {channelOk ? (
+                <span className="text-ok">
+                  Canal: {(ytChannelInput.trim() || profile.youtube).trim()}
+                </span>
+              ) : (
+                <span className="text-warn">Falta el handle del canal</span>
+              )}
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 text-[11px] leading-relaxed text-subtle">
+          Se guarda en este navegador (localStorage). No hace falta volver a Ajustes.
+          Después de pegar, tocá <strong className="text-fg">Sincronizar YouTube</strong>.
+        </p>
+      </section>
+
       {error ? (
         <p className="rounded-lg bg-danger/15 px-3 py-2 text-sm text-danger">{error}</p>
       ) : null}
 
-      {/* LIVE STATS */}
       {ytStats ? (
         <section className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
@@ -133,7 +187,6 @@ function Youtube() {
             />
           </div>
 
-          {/* Progreso al próximo hito de subs */}
           {nextMilestone && !ytStats.hiddenSubscriberCount ? (
             <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -148,7 +201,7 @@ function Youtube() {
               </div>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-elevated">
                 <div
-                  className={cn("h-full rounded-full bg-accent transition-all")}
+                  className="h-full rounded-full bg-accent transition-all"
                   style={{
                     width: `${Math.min(
                       100,
@@ -165,22 +218,13 @@ function Youtube() {
       ) : (
         <section className="rounded-xl border border-border bg-surface p-5 text-sm text-muted shadow-[var(--shadow-border)]">
           <p className="font-display text-lg text-fg">Sin sync todavía</p>
-          <ol className="mt-2 list-inside list-decimal space-y-1">
-            <li>
-              Google Cloud → crear proyecto → habilitar{" "}
-              <strong className="text-fg">YouTube Data API v3</strong>
-            </li>
-            <li>Crear una API key (restringila a esa API si querés)</li>
-            <li>
-              En <strong className="text-fg">Ajustes</strong> pegá la API key y el
-              handle del canal (@tuCanal) o el Channel ID (UC…)
-            </li>
-            <li>Volvé acá y tocá <strong className="text-fg">Sincronizar YouTube</strong></li>
-          </ol>
+          <p className="mt-2">
+            Completá los dos campos de arriba (API Key + @handle) y tocá{" "}
+            <strong className="text-fg">Sincronizar YouTube</strong>.
+          </p>
         </section>
       )}
 
-      {/* Últimos videos */}
       {ytVideos.length > 0 ? (
         <section>
           <h2 className="font-display text-2xl">Últimos videos</h2>
