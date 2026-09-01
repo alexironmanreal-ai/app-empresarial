@@ -8,5 +8,13 @@ export default defineConfig({
   server: {
     host: true,
     port: 8080,
+    proxy: {
+      "/api/mp": {
+        target: "https://api.mercadopago.com",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/mp/, ""),
+      },
+    },
   },
 });
