@@ -1,4 +1,4 @@
-# AXION HQ — App Empresarial
+# SENTINEL HQ — App Empresarial
 
 Escritorio del CEO: empresa, finanzas, YouTube y el sistema operativo en construcción.
 
@@ -13,7 +13,7 @@ Esta versión deja de ser solo checklist motivacional y pasa a medir **supervive
 - **Review semanal forzada** — el briefing grita si llevás >7 días sin cerrar review
 - **HQ con números duros**: caja, runway, P0 abiertos, días desde última review
 - **Briefing contextual** según caja, runway y estado de review (no textos genéricos)
-- Persistencia actualizada a `axion-hq-v4`
+- Persistencia en `localStorage` (key interna estable para no perder datos)
 
 ## Stack
 
@@ -29,9 +29,10 @@ Esta versión deja de ser solo checklist motivacional y pasa a medir **supervive
 | `/` | HQ / briefing + realidad (caja, runway, review) |
 | `/tareas` | Tablero P0–P3 |
 | `/tracker` | 365 días de cadencia |
+| `/registros` | Historial diario |
 | `/empresa` | Estado legal y gaps |
 | `/finanzas` | Caja, runway, burn, wealth |
-| `/youtube` | Hitos y pilares del canal |
+| `/youtube` | Stats live + hitos del canal |
 | `/os` | Módulos del sistema operativo |
 | `/ceo` | Cadencia y rate card |
 
@@ -48,8 +49,8 @@ Abrí http://localhost:8080
 
 ## Notas
 
-- El progreso de tareas se guarda en `localStorage` (Zustand persist · key `axion-hq-v4`).
+- El progreso se guarda en `localStorage` (Zustand persist).
 - En Ajustes podés cambiar founder, empresa, moneda (USD/ARS) y reiniciar.
 - En Finanzas cargá saldos reales y el burn extra (comida, tools, etc.).
 - En HQ usá **Cerrar review semanal** cada viernes (o cuando corresponda).
-- Versión adaptada para correr fuera del entorno Grok App Builder.
+- YouTube: API key + handle en la pantalla del módulo → Sincronizar.

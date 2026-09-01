@@ -49,7 +49,7 @@ export function PrintReport() {
     <div id="print-report" className="print-only">
       <header className="print-header">
         <div>
-          <p className="print-kicker">{profile.company} · AXION HQ</p>
+          <p className="print-kicker">{profile.company} · SENTINEL HQ</p>
           <h1>Dashboard · reporte</h1>
           <p className="print-meta">
             {profile.founder} · {when}
@@ -205,7 +205,7 @@ export function PrintReport() {
       </section>
 
       <footer className="print-footer">
-        AXION HQ · reporte generado en el navegador · no es un documento fiscal
+        SENTINEL HQ · reporte generado en el navegador · no es un documento fiscal
       </footer>
     </div>
   );

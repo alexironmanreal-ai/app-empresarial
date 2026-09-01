@@ -11,7 +11,7 @@ export const GAPS: Gap[] = [
   { id: "g-offer", area: "Oferta", now: "Sin precio público", missing: "Rate card + outbound", time: "4 días + ritmo", costUsd: 0 },
   { id: "g-brand", area: "Marca", now: "Nombre solo en la cabeza", missing: "Dominio + INPI", time: "2–10 días", costUsd: 210 },
   { id: "g-yt", area: "YouTube", now: "Sin promesa ni cadencia", missing: "8 videos + kit", time: "8 semanas", costUsd: 280 },
-  { id: "g-os", area: "Axion OS", now: "Sin hello en QEMU", missing: "Spec + boot + CI", time: "Spec 10d · hello 30d", costUsd: 0 },
+  { id: "g-os", area: "Sentinel OS", now: "Sin hello en QEMU", missing: "Spec + boot + CI", time: "Spec 10d · hello 30d", costUsd: 0 },
   { id: "g-gov", area: "Gobierno CEO", now: "El día lo manda el impulso", missing: "Semana tipo + review", time: "48 horas", costUsd: 0 },
 ];
 

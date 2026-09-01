@@ -85,9 +85,9 @@ type HqState = {
 
 const DEFAULT_PROFILE: Profile = {
   founder: "Founder",
-  company: "Axion",
-  os: "Axion OS",
-  youtube: "Axion",
+  company: "Sentinel",
+  os: "Sentinel OS",
+  youtube: "Sentinel",
   niche: "Construir un sistema operativo en público + el oficio de CEO",
 };
 
@@ -207,6 +207,7 @@ export const useHq = create<HqState>()(
           ytVideos: [],
         }),
     }),
+    // Misma key que antes para no borrar progreso del usuario
     { name: "axion-hq-v4" },
   ),
 );
