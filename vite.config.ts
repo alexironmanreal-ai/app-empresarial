@@ -4,6 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
+  // Rutas relativas: sirve bien desde el server embebido de Electron
+  base: "./",
   plugins: [tsconfigPaths(), tailwindcss(), react()],
   server: {
     host: true,

@@ -1,11 +1,19 @@
 {
-  "name": "app-empresarial",
+  "name": "sentinel-hq",
+  "productName": "Sentinel HQ",
+  "version": "1.0.0",
   "private": true,
+  "description": "Sentinel HQ — escritorio del CEO",
+  "author": "Sentinel",
+  "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "vite --host --port 8080",
     "build": "vite build",
-    "preview": "vite preview --port 8080"
+    "preview": "vite preview --port 8080",
+    "electron:dev": "concurrently -k \"vite --host --port 8080\" \"wait-on http://localhost:8080 && electron .\"",
+    "electron:build": "vite build && electron-builder --win",
+    "electron:build:dir": "vite build && electron-builder --win --dir"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -27,9 +35,52 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8",
     "tailwindcss": "^4.0.0",
     "typescript": "~5.7.2",
     "vite": "^6.0.0",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "wait-on": "^8.0.2"
+  },
+  "build": {
+    "appId": "com.sentinel.hq",
+    "productName": "Sentinel HQ",
+    "copyright": "Copyright © Sentinel",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${target}.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "shortcutName": "Sentinel HQ"
+    },
+    "portable": {
+      "artifactName": "SentinelHQ-Portable-${version}.exe"
+    }
   }
 }
