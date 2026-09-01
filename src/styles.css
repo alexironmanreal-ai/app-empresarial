@@ -72,3 +72,131 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* —— Impresión / fotocopia del dashboard —— */
+.print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #111 !important;
+  }
+
+  /* Oculta la app en pantalla; solo el reporte */
+  body * {
+    visibility: hidden;
+  }
+
+  #print-report,
+  #print-report * {
+    visibility: visible;
+  }
+
+  #print-report {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    color: #111;
+    font-size: 11pt;
+  }
+
+  .print-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 2px solid #111;
+    padding-bottom: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .print-kicker {
+    font-family: ui-monospace, monospace;
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #444;
+    margin: 0;
+  }
+
+  #print-report h1 {
+    font-size: 22pt;
+    margin: 0.25rem 0;
+    color: #111;
+  }
+
+  #print-report h2 {
+    font-size: 13pt;
+    margin: 1rem 0 0.4rem;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 0.2rem;
+    color: #111;
+  }
+
+  .print-meta {
+    font-size: 9pt;
+    color: #555;
+    margin: 0;
+  }
+
+  .print-big {
+    font-size: 18pt;
+    font-weight: 600;
+    margin: 0.15rem 0;
+  }
+
+  .print-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .print-card {
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 0.5rem 0.6rem;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+  }
+
+  .print-table th,
+  .print-table td {
+    border-bottom: 1px solid #ddd;
+    padding: 0.35rem 0.4rem;
+    text-align: left;
+  }
+
+  .print-table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .print-list {
+    margin: 0.25rem 0 0;
+    padding-left: 1.1rem;
+    font-size: 9.5pt;
+  }
+
+  .print-footer {
+    margin-top: 1.25rem;
+    font-size: 8pt;
+    color: #666;
+    border-top: 1px solid #ccc;
+    padding-top: 0.4rem;
+  }
+}
