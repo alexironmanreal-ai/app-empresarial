@@ -21,6 +21,12 @@ export default defineConfig({
         secure: true,
         rewrite: (path) => path.replace(/^\/api\/yt/, ""),
       },
+      "/api/gh": {
+        target: "https://api.github.com",
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path.replace(/^\/api\/gh/, ""),
+      },
     },
   },
 });
