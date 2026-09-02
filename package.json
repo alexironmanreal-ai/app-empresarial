@@ -13,6 +13,7 @@
     "preview": "vite preview --port 8080",
     "electron:dev": "concurrently -k \"vite --host --port 8080\" \"wait-on http://localhost:8080 && electron .\"",
     "electron:build": "vite build && electron-builder --win",
+    "electron:installer": "vite build && electron-builder --win nsis",
     "electron:build:dir": "vite build && electron-builder --win --dir"
   },
   "dependencies": {
@@ -60,27 +61,22 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
+          "arch": ["x64"]
         }
       ],
-      "artifactName": "${productName}-${version}-${target}.${ext}"
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
-      "shortcutName": "Sentinel HQ"
-    },
-    "portable": {
-      "artifactName": "SentinelHQ-Portable-${version}.exe"
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Sentinel HQ",
+      "installerIcon": null,
+      "uninstallerIcon": null,
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": true
     }
   }
 }
