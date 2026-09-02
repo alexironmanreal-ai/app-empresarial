@@ -89,23 +89,8 @@ export function CompareArea({
         <YAxis tick={axis} axisLine={false} tickLine={false} width={36} />
         <Tooltip contentStyle={tooltipStyle} />
         <Legend wrapperStyle={{ fontSize: 12, color: "#9a9aa3" }} />
-        <Area
-          type="monotone"
-          dataKey="done"
-          name={doneName}
-          stroke="#c5cdd8"
-          fill={`url(#${gid})`}
-          strokeWidth={1.8}
-        />
-        <Area
-          type="monotone"
-          dataKey="skip"
-          name={skipName}
-          stroke="#6e6e76"
-          fill="transparent"
-          strokeWidth={1.4}
-          strokeDasharray="4 3"
-        />
+        <Area type="monotone" dataKey="done" name={doneName} stroke="#c5cdd8" fill={`url(#${gid})`} strokeWidth={1.8} />
+        <Area type="monotone" dataKey="skip" name={skipName} stroke="#6e6e76" fill="transparent" strokeWidth={1.4} strokeDasharray="4 3" />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -193,7 +178,6 @@ export function StackedBars({
   );
 }
 
-/** Vela OHLC estilo trading (views / stats). */
 export type CandlePoint = {
   label: string;
   open: number;
@@ -202,21 +186,12 @@ export type CandlePoint = {
   close: number;
 };
 
-function CandleShape(props: {
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  open?: number;
-  close?: number;
-  low?: number;
-  high?: number;
-  yAxis?: { scale: (v: number) => number };
-  background?: { y: number; height: number };
-}) {
-  const { x = 0, width = 0, open = 0, close = 0, low = 0, high = 0, yAxis } = props;
-  if (!yAxis?.scale) return null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function CandleShape(props: any) {
+  const { x, width, payload, yAxis } = props;
+  if (!payload || !yAxis?.scale) return null;
 
+  const { open, high, low, close } = payload as CandlePoint;
   const yOpen = yAxis.scale(open);
   const yClose = yAxis.scale(close);
   const yHigh = yAxis.scale(high);
@@ -226,13 +201,13 @@ function CandleShape(props: {
   const bodyBot = Math.max(yOpen, yClose);
   const bodyH = Math.max(bodyBot - bodyTop, 1.5);
   const cx = x + width / 2;
-  const bodyW = Math.max(width * 0.55, 3);
+  const bodyW = Math.max(width * 0.5, 3);
   const bull = close >= open;
   const color = bull ? "#8fbc98" : "#c47a72";
 
   return (
     <g>
-      <line x1={cx} y1={yHigh} x2={cx} y2={yLow} stroke={color} strokeWidth={1.2} />
+      <line x1={cx} y1={yHigh} x2={cx} y2={yLow} stroke={color} strokeWidth={1.25} />
       <rect
         x={cx - bodyW / 2}
         y={bodyTop}
@@ -240,25 +215,25 @@ function CandleShape(props: {
         height={bodyH}
         fill={bull ? color : "#0e0e12"}
         stroke={color}
-        strokeWidth={1.2}
+        strokeWidth={1.25}
       />
     </g>
   );
 }
 
 export function CandlestickChart({ data }: { data: CandlePoint[] }) {
-  // base en low para que el Bar ocupe el rango; el shape dibuja la vela real
-  const shaped = data.map((d) => ({
-    ...d,
-    // valor dummy para que Recharts reserve espacio vertical
-    _slot: d.high,
-  }));
-
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ComposedChart data={shaped} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke="rgba(196,165,116,0.08)" vertical={false} />
-        <XAxis dataKey="label" tick={axis} axisLine={false} tickLine={false} interval="preserveStartEnd" minTickGap={20} />
+        <XAxis
+          dataKey="label"
+          tick={axis}
+          axisLine={false}
+          tickLine={false}
+          interval="preserveStartEnd"
+          minTickGap={18}
+        />
         <YAxis
           tick={axis}
           axisLine={false}
@@ -274,19 +249,13 @@ export function CandlestickChart({ data }: { data: CandlePoint[] }) {
           }
         />
         <Tooltip
-          contentStyle={tooltipStyle}
-          formatter={(value: number, name: string) => {
-            if (name === "_slot") return [null, null];
-            return [value.toLocaleString("es-AR"), name];
-          }}
-          labelFormatter={(l) => `Sync ${l}`}
           content={({ active, payload, label }) => {
             if (!active || !payload?.[0]) return null;
             const d = payload[0].payload as CandlePoint;
             const bull = d.close >= d.open;
             return (
-              <div style={tooltipStyle} className="px-3 py-2">
-                <p className="mb-1 font-mono text-[11px] opacity-70">{label}</p>
+              <div style={{ ...tooltipStyle, padding: "8px 12px" }}>
+                <p style={{ opacity: 0.7, fontSize: 11, marginBottom: 4 }}>{label}</p>
                 <p>O {d.open.toLocaleString("es-AR")}</p>
                 <p>H {d.high.toLocaleString("es-AR")}</p>
                 <p>L {d.low.toLocaleString("es-AR")}</p>
@@ -297,8 +266,8 @@ export function CandlestickChart({ data }: { data: CandlePoint[] }) {
             );
           }}
         />
-        <Bar dataKey="_slot" shape={<CandleShape />} isAnimationActive={false}>
-          {shaped.map((d, i) => (
+        <Bar dataKey="high" shape={CandleShape} isAnimationActive={false} maxBarSize={28}>
+          {data.map((d, i) => (
             <Cell key={i} fill={d.close >= d.open ? "#8fbc98" : "#c47a72"} />
           ))}
         </Bar>
