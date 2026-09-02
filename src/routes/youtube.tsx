@@ -4,7 +4,7 @@ import { YT_MILESTONES, YT_PILLARS, YT_TITLES } from "@/lib/data";
 import { num } from "@/lib/format";
 import { useHq } from "@/lib/store";
 import { fetchChannelStats, fetchRecentVideos } from "@/lib/youtube";
-import { ChartShell, SimpleLine } from "@/components/chart-block";
+import { CandlestickChart, ChartShell, SimpleLine } from "@/components/chart-block";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,37 @@ function Youtube() {
       })),
     [ytHistory],
   );
+
+  /** Velas OHLC de views entre syncs (estilo trading) */
+  const viewsCandles = useMemo(() => {
+    if (ytHistory.length < 2) return [];
+    const out: {
+      label: string;
+      open: number;
+      high: number;
+      low: number;
+      close: number;
+    }[] = [];
+    for (let i = 1; i < ytHistory.length; i++) {
+      const prev = ytHistory[i - 1].viewCount;
+      const cur = ytHistory[i].viewCount;
+      const open = prev;
+      const close = cur;
+      const mid = (open + close) / 2;
+      const span = Math.max(Math.abs(close - open), mid * 0.002, 1);
+      const high = Math.max(open, close) + span * 0.35;
+      const low = Math.min(open, close) - span * 0.35;
+      const d = new Date(ytHistory[i].at);
+      out.push({
+        label: `${d.getDate()}/${d.getMonth() + 1}`,
+        open,
+        high,
+        low: Math.max(0, low),
+        close,
+      });
+    }
+    return out;
+  }, [ytHistory]);
 
   const nextMilestone = ytStats
     ? YT_MILESTONES.find((m) => m.subs > ytStats.subscriberCount) ??
@@ -192,6 +223,20 @@ function Youtube() {
         >
           <SimpleLine data={historyChart} dataKey="subs" name="Subs" />
         </ChartShell>
+      ) : null}
+
+      {viewsCandles.length > 0 ? (
+        <ChartShell
+          title="Views · velas (OHLC)"
+          caption="Cada vela = cambio de views entre dos syncs. Verde sube · rojo baja."
+          height={280}
+        >
+          <CandlestickChart data={viewsCandles} />
+        </ChartShell>
+      ) : ytHistory.length === 1 ? (
+        <p className="text-sm text-muted">
+          Hacé al menos 2 sincronizaciones para ver el gráfico de velas de views.
+        </p>
       ) : null}
 
       {ytHistory.length > 0 ? (
