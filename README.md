@@ -2,6 +2,8 @@
 
 Escritorio del CEO: empresa, finanzas, YouTube, pipeline, OS y cadencia.
 
+**v1.1** — Cuentas locales multi-usuario: cada cuenta guarda su propio progreso, caja, leads y tokens API en este dispositivo.
+
 ## Requisitos
 
 - **Node.js** 18+ (recomendado 20 LTS)
@@ -20,6 +22,19 @@ npm -v
 ```
 
 En otras distros: usa el gestor de paquetes (`dnf`, `pacman`, `zypper`) o [nvm](https://github.com/nvm-sh/nvm).
+
+---
+
+## Cuentas locales (persistencia por usuario)
+
+Al abrir la app verás **Entrar** o **Crear cuenta local**.
+
+- Usuario + contraseña (hash SHA-256, solo en este equipo).
+- Cada cuenta tiene su propio almacenamiento: tareas, finanzas, pipeline, YouTube, GitHub, onboarding.
+- Cerrar sesión vuelve a la pantalla de login; otra cuenta no ve los datos de la anterior.
+- “Reiniciar progreso” en Ajustes solo borra los datos de la cuenta actual.
+
+No hay servidor de autenticación: todo vive en `localStorage` del perfil de Electron / del navegador.
 
 ---
 
@@ -42,70 +57,60 @@ npm run electron:dev
 
 ---
 
-## Linux · AppImage + .deb (Ubuntu y cualquier distro)
+## Instaladores
+
+### Linux · AppImage + .deb
 
 ```bash
 npm install
-npm run electron:build:linux
-# o solo instaladores:
-npm run electron:installer:linux
+npm run dist:linux
+# equivalente: npm run electron:installer:linux
 ```
 
 Salida en `release/`:
 
 | Archivo | Uso |
 |---------|-----|
-| **Sentinel HQ-1.0.0-x64.AppImage** | Portable: funciona en Ubuntu, Fedora, Arch, openSUSE, etc. Sin instalar. |
-| **Sentinel HQ-1.0.0-x64.deb** | Instalador nativo para Debian/Ubuntu (y derivados: Mint, Pop!_OS, etc.) |
+| **Sentinel HQ-1.1.0-x64.AppImage** | Portable: Ubuntu, Fedora, Arch, openSUSE, etc. Sin instalar. |
+| **Sentinel HQ-1.1.0-x64.deb** | Instalador nativo Debian/Ubuntu (Mint, Pop!_OS, …) |
 
-### Usar el AppImage (cualquier distro)
-
-```bash
-chmod +x "release/Sentinel HQ-1.0.0-x64.AppImage"
-./"release/Sentinel HQ-1.0.0-x64.AppImage"
-```
-
-Opcional: mover a `~/Applications` o `/usr/local/bin` y crear un acceso directo en el menú.
-
-### Instalar el .deb (Ubuntu / Debian)
+#### AppImage
 
 ```bash
-sudo dpkg -i "release/Sentinel HQ-1.0.0-x64.deb"
-# Si faltan dependencias:
-sudo apt-get install -f
+chmod +x "release/Sentinel HQ-1.1.0-x64.AppImage"
+./"release/Sentinel HQ-1.1.0-x64.AppImage"
 ```
 
-Después aparece **Sentinel HQ** en el menú de aplicaciones.
-
-Desinstalar:
+#### .deb (Ubuntu / Debian)
 
 ```bash
-sudo apt remove sentinel-hq
+sudo dpkg -i "release/Sentinel HQ-1.1.0-x64.deb"
+sudo apt-get install -f   # si faltan dependencias
 ```
 
-> El build de Linux se puede hacer **en Linux**. En Windows/macOS, electron-builder también puede generar AppImage/deb si tienes las herramientas, pero lo más fiable es compilar en la misma distro (o en Ubuntu).
+Desinstalar: `sudo apt remove sentinel-hq`
 
----
+> Conviene compilar Linux **en Linux**.
 
-## Windows · .exe
+### Windows · .exe (instalador + portable)
 
 ```bash
 npm install
-npm run electron:build
+npm run dist:win
+# o solo NSIS: npm run electron:build
 ```
 
 Salida en `release/`:
 
-- **Sentinel HQ-Setup-1.0.0.exe** — instalador NSIS
+- **Sentinel HQ-Setup-1.1.0.exe** — instalador NSIS
+- **Sentinel HQ-Portable-1.1.0.exe** — portable (sin instalar)
 
 > El build del `.exe` conviene hacerlo **en Windows**.
 
----
-
-## Compilar todo (Windows + Linux)
+### Todo (Windows + Linux)
 
 ```bash
-npm run electron:build:all
+npm run dist:all
 ```
 
 ---
@@ -113,13 +118,14 @@ npm run electron:build:all
 ## Qué incluye el empaquetado
 
 - Toda la UI (HQ, tareas, tracker, registros, pipeline, YT, OS, CEO)
-- Proxy local para YouTube / Mercado Pago / GitHub (mismas rutas `/api/...`)
-- Datos en localStorage del perfil de Electron (se mantienen entre sesiones)
+- Proxy local para YouTube / Mercado Pago / GitHub (`/api/...`)
+- Cuentas locales multi-usuario con datos aislados por cuenta
+- Persistencia en el perfil de Electron / localStorage
 
 ## Notas
 
-- Progreso en `localStorage` (Zustand).
-- YouTube: API key + handle en la pantalla del módulo.
+- Progreso en `localStorage` (Zustand), clave por `userId`.
+- YouTube: API key + handle en el módulo.
 - Pipeline: leads hasta cobrado.
 - OS: repo GitHub + commits.
 - Registros: export CSV.

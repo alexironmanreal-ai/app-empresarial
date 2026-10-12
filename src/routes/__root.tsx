@@ -2,6 +2,7 @@ import { createRootRoute, Outlet } from "@tanstack/react-router";
 import { Shell } from "@/components/layout";
 import { Onboarding } from "@/components/onboarding";
 import { PrintReport } from "@/components/print-report";
+import { AuthGate } from "@/components/auth-gate";
 
 export const Route = createRootRoute({
   component: Root,
@@ -9,12 +10,16 @@ export const Route = createRootRoute({
 
 function Root() {
   return (
-    <>
-      <Onboarding />
-      <Shell>
-        <Outlet />
-      </Shell>
-      <PrintReport />
-    </>
+    <AuthGate>
+      {(session) => (
+        <>
+          <Onboarding />
+          <Shell session={session}>
+            <Outlet />
+          </Shell>
+          <PrintReport />
+        </>
+      )}
+    </AuthGate>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useHq } from "@/lib/store";
+import { getSession } from "@/lib/accounts";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -9,7 +10,13 @@ export function Onboarding() {
   const setOnboarded = useHq((s) => s.setOnboarded);
   const profile = useHq((s) => s.profile);
   const setProfile = useHq((s) => s.setProfile);
-  const [local, setLocal] = useState(profile);
+  const session = getSession();
+  const [local, setLocal] = useState(() => ({
+    ...profile,
+    founder: profile.founder === "Founder" && session?.displayName
+      ? session.displayName
+      : profile.founder,
+  }));
 
   if (onboarded) return null;
 
@@ -17,11 +24,12 @@ export function Onboarding() {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg/90 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-[var(--shadow-border)]">
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-subtle">
-          Primera vez
+          Primera vez · @{session?.username ?? "local"}
         </p>
         <h1 className="mt-2 font-display text-3xl">Configurá tu HQ</h1>
         <p className="mt-2 text-sm text-muted">
-          Esto personaliza el briefing y el tablero. Se guarda en este navegador.
+          Esto personaliza el briefing y el tablero. Se guarda solo para esta
+          cuenta en este dispositivo.
         </p>
         <div className="mt-5 space-y-3">
           {(

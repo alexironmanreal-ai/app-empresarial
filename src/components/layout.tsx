@@ -8,6 +8,7 @@ import {
   Handshake,
   LayoutDashboard,
   ListChecks,
+  LogOut,
   NotebookPen,
   Settings2,
   Wallet,
@@ -18,7 +19,8 @@ import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogTrigger } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { companyScore, useHq } from "@/lib/store";
+import { companyScore, switchHqUser, useHq } from "@/lib/store";
+import { logoutAccount, type Session } from "@/lib/accounts";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -34,7 +36,13 @@ const NAV = [
   { to: "/ceo", label: "CEO", icon: Briefcase },
 ];
 
-export function Shell({ children }: { children: ReactNode }) {
+export function Shell({
+  children,
+  session,
+}: {
+  children: ReactNode;
+  session: Session;
+}) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const done = useHq((s) => s.done);
   const profile = useHq((s) => s.profile);
@@ -52,6 +60,9 @@ export function Shell({ children }: { children: ReactNode }) {
             {profile.company}
           </p>
           <p className="font-display text-3xl leading-none text-fg">HQ</p>
+          <p className="mt-1 truncate text-xs text-muted" title={session.username}>
+            {session.displayName}
+          </p>
           <p className="mt-3 font-mono text-[11px] tabular-nums text-muted">
             {Math.round(score * 100)}% construida
           </p>
@@ -77,8 +88,9 @@ export function Shell({ children }: { children: ReactNode }) {
             );
           })}
         </nav>
-        <div className="p-3">
-          <SettingsDialog />
+        <div className="space-y-1.5 p-3">
+          <SettingsDialog session={session} />
+          <LogoutButton />
         </div>
       </aside>
 
@@ -88,8 +100,12 @@ export function Shell({ children }: { children: ReactNode }) {
             {profile.company}
           </p>
           <p className="font-display text-xl leading-none">HQ</p>
+          <p className="text-[11px] text-muted">{session.displayName}</p>
         </div>
-        <SettingsDialog />
+        <div className="flex items-center gap-1">
+          <SettingsDialog session={session} />
+          <LogoutButton compact />
+        </div>
       </header>
 
       <nav className="fixed bottom-0 left-0 right-0 z-20 flex overflow-x-auto border-t border-border bg-bg/95 px-1 py-1 backdrop-blur-sm lg:hidden">
@@ -121,7 +137,27 @@ export function Shell({ children }: { children: ReactNode }) {
   );
 }
 
-function SettingsDialog() {
+function LogoutButton({ compact }: { compact?: boolean }) {
+  return (
+    <Button
+      variant="ghost"
+      size={compact ? "icon" : "sm"}
+      className={compact ? undefined : "w-full gap-2"}
+      title="Cerrar sesión"
+      onClick={async () => {
+        logoutAccount();
+        await switchHqUser();
+        // fuerza re-render del AuthGate leyendo sesión vacía
+        window.location.reload();
+      }}
+    >
+      <LogOut className="size-3.5" />
+      {!compact && "Cerrar sesión"}
+    </Button>
+  );
+}
+
+function SettingsDialog({ session }: { session: Session }) {
   const profile = useHq((s) => s.profile);
   const setProfile = useHq((s) => s.setProfile);
   const currency = useHq((s) => s.currency);
@@ -145,7 +181,17 @@ function SettingsDialog() {
       </DialogTrigger>
       <DialogContent>
         <div className="max-h-[80vh] space-y-4 overflow-y-auto">
-          <h2 className="font-display text-xl">Perfil</h2>
+          <h2 className="font-display text-xl">Cuenta local</h2>
+          <p className="text-sm text-muted">
+            Sesión: <span className="text-fg">{session.displayName}</span>{" "}
+            <span className="font-mono text-xs text-subtle">@{session.username}</span>
+          </p>
+          <p className="text-xs text-subtle">
+            Los datos de este HQ (tareas, caja, leads, tokens) se guardan solo
+            para esta cuenta en este dispositivo.
+          </p>
+
+          <h2 className="pt-2 font-display text-xl">Perfil</h2>
           <Field label="Founder" value={profile.founder} onChange={(v) => setProfile({ founder: v })} />
           <Field label="Empresa" value={profile.company} onChange={(v) => setProfile({ company: v })} />
           <Field label="OS" value={profile.os} onChange={(v) => setProfile({ os: v })} />
@@ -208,7 +254,7 @@ function SettingsDialog() {
               setOpen(false);
             }}
           >
-            Reiniciar progreso
+            Reiniciar progreso de esta cuenta
           </Button>
         </div>
       </DialogContent>

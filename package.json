@@ -1,7 +1,7 @@
 {
   "name": "sentinel-hq",
   "productName": "Sentinel HQ",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Sentinel HQ — escritorio del CEO",
   "author": "Sentinel",
@@ -18,7 +18,10 @@
     "electron:installer": "vite build && electron-builder --win nsis",
     "electron:installer:linux": "vite build && electron-builder --linux AppImage deb",
     "electron:build:dir": "vite build && electron-builder --win --dir",
-    "electron:build:dir:linux": "vite build && electron-builder --linux --dir"
+    "electron:build:dir:linux": "vite build && electron-builder --linux --dir",
+    "dist:win": "vite build && electron-builder --win nsis portable",
+    "dist:linux": "vite build && electron-builder --linux AppImage deb",
+    "dist:all": "vite build && electron-builder --win nsis portable --linux AppImage deb"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -66,6 +69,10 @@
         {
           "target": "nsis",
           "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
         }
       ],
       "artifactName": "${productName}-Setup-${version}.${ext}"
@@ -85,7 +92,7 @@
       "maintainer": "Sentinel <sentinel@local>",
       "vendor": "Sentinel",
       "synopsis": "Sentinel HQ — escritorio del CEO",
-      "description": "Escritorio del CEO: empresa, finanzas, YouTube, pipeline, OS y cadencia.",
+      "description": "Escritorio del CEO: empresa, finanzas, YouTube, pipeline, OS y cadencia. Cuentas locales multi-usuario.",
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "desktop": {
         "Name": "Sentinel HQ",
@@ -104,6 +111,9 @@
       "uninstallerIcon": null,
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": true
+    },
+    "portable": {
+      "artifactName": "${productName}-Portable-${version}.${ext}"
     }
   }
 }

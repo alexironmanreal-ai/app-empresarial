@@ -1,10 +1,11 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import { TASKS, WEIGHT } from "./data";
 import type { Priority } from "./types";
 import type { MpBalance } from "./mercadopago";
 import type { YtChannelStats, YtVideoStat } from "./youtube";
 import type { GhCommit, GhRepoSummary } from "./github";
+import { createUserScopedStorage, getCurrentUserId } from "./accounts";
 
 export type Currency = "USD" | "ARS";
 export type Scenario = "conservative" | "base" | "optimistic";
@@ -129,33 +130,37 @@ const DEFAULT_CAJA: CajaRow[] = [
   { id: "efectivo", name: "Efectivo", ars: 0, source: "manual" },
 ];
 
+const initialState = {
+  done: {} as Record<string, boolean>,
+  profile: DEFAULT_PROFILE,
+  currency: "ARS" as Currency,
+  scenario: "base" as Scenario,
+  onboarded: false,
+  focusP0: false,
+  mpToken: "",
+  mpBalance: null as MpBalance | null,
+  caja: DEFAULT_CAJA,
+  dayLog: {} as Record<string, Record<string, boolean>>,
+  dayNotes: {} as Record<string, string>,
+  daySnapshots: {} as Record<string, DaySnapshot>,
+  lastReviewAt: null as string | null,
+  extraMonthlyBurnArs: 0,
+  ytApiKey: "",
+  ytChannelInput: "",
+  ytStats: null as YtChannelStats | null,
+  ytVideos: [] as YtVideoStat[],
+  ytHistory: [] as YtHistoryPoint[],
+  leads: [] as Lead[],
+  ghRepoInput: "",
+  ghToken: "",
+  ghSummary: null as GhRepoSummary | null,
+  ghCommits: [] as GhCommit[],
+};
+
 export const useHq = create<HqState>()(
   persist(
     (set) => ({
-      done: {},
-      profile: DEFAULT_PROFILE,
-      currency: "ARS",
-      scenario: "base",
-      onboarded: false,
-      focusP0: false,
-      mpToken: "",
-      mpBalance: null,
-      caja: DEFAULT_CAJA,
-      dayLog: {},
-      dayNotes: {},
-      daySnapshots: {},
-      lastReviewAt: null,
-      extraMonthlyBurnArs: 0,
-      ytApiKey: "",
-      ytChannelInput: "",
-      ytStats: null,
-      ytVideos: [],
-      ytHistory: [],
-      leads: [],
-      ghRepoInput: "",
-      ghToken: "",
-      ghSummary: null,
-      ghCommits: [],
+      ...initialState,
       toggle: (id) => set((s) => ({ done: { ...s.done, [id]: !s.done[id] } })),
       setDone: (id, value) => set((s) => ({ done: { ...s.done, [id]: value } })),
       setProfile: (p) => set((s) => ({ profile: { ...s.profile, ...p } })),
@@ -264,37 +269,31 @@ export const useHq = create<HqState>()(
       setGhRepoInput: (ghRepoInput) => set({ ghRepoInput }),
       setGhToken: (ghToken) => set({ ghToken }),
       setGhData: (ghSummary, ghCommits) => set({ ghSummary, ghCommits }),
-      reset: () =>
-        set({
-          done: {},
-          profile: DEFAULT_PROFILE,
-          currency: "ARS",
-          scenario: "base",
-          onboarded: false,
-          focusP0: false,
-          mpToken: "",
-          mpBalance: null,
-          caja: DEFAULT_CAJA,
-          dayLog: {},
-          dayNotes: {},
-          daySnapshots: {},
-          lastReviewAt: null,
-          extraMonthlyBurnArs: 0,
-          ytApiKey: "",
-          ytChannelInput: "",
-          ytStats: null,
-          ytVideos: [],
-          ytHistory: [],
-          leads: [],
-          ghRepoInput: "",
-          ghToken: "",
-          ghSummary: null,
-          ghCommits: [],
-        }),
+      reset: () => set({ ...initialState }),
     }),
-    { name: "axion-hq-v4" },
+    {
+      name: "axion-hq-v4",
+      storage: createJSONStorage(() => createUserScopedStorage("axion-hq-v4")),
+      // no rehidratar hasta que haya sesión (evita mezclar datos)
+      skipHydration: true,
+    },
   ),
 );
+
+/**
+ * Tras login/logout: limpia el estado en memoria y rehidrata
+ * los datos del usuario activo desde localStorage.
+ */
+export async function switchHqUser() {
+  const uid = getCurrentUserId();
+  if (!uid) {
+    useHq.setState({ ...initialState });
+    return;
+  }
+  // reset a defaults y luego rehydrate del storage del usuario
+  useHq.setState({ ...initialState });
+  await useHq.persist.rehydrate();
+}
 
 export function isTaskComplete(
   taskId: string,
