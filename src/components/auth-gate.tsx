@@ -4,6 +4,7 @@ import {
   listAccounts,
   loginAccount,
   registerAccount,
+  migrateUserHqStorage,
   type Session,
 } from "@/lib/accounts";
 import { switchHqUser } from "@/lib/store";
@@ -32,6 +33,8 @@ export function AuthGate({
     let cancelled = false;
     (async () => {
       if (session) {
+        // Asegura migración de clave legacy y carga datos del usuario
+        migrateUserHqStorage(session.userId);
         await switchHqUser();
       }
       if (!cancelled) setReady(true);
