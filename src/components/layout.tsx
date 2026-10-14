@@ -145,9 +145,8 @@ function LogoutButton({ compact }: { compact?: boolean }) {
       className={compact ? undefined : "w-full gap-2"}
       title="Cerrar sesión"
       onClick={async () => {
-        logoutAccount();
+        await logoutAccount();
         await switchHqUser();
-        // fuerza re-render del AuthGate leyendo sesión vacía
         window.location.reload();
       }}
     >
@@ -181,14 +180,15 @@ function SettingsDialog({ session }: { session: Session }) {
       </DialogTrigger>
       <DialogContent>
         <div className="max-h-[80vh] space-y-4 overflow-y-auto">
-          <h2 className="font-display text-xl">Cuenta local</h2>
+          <h2 className="font-display text-xl">Cuenta</h2>
           <p className="text-sm text-muted">
             Sesión: <span className="text-fg">{session.displayName}</span>{" "}
             <span className="font-mono text-xs text-subtle">@{session.username}</span>
           </p>
           <p className="text-xs text-subtle">
-            Los datos de este HQ (tareas, caja, leads, tokens) se guardan solo
-            para esta cuenta en este dispositivo.
+            {session.mode === "cloud"
+              ? "Los datos se guardan en Supabase (Postgres) y en caché local de este dispositivo."
+              : "Los datos de este HQ se guardan solo para esta cuenta en este dispositivo (sin nube)."}
           </p>
 
           <h2 className="pt-2 font-display text-xl">Perfil</h2>
