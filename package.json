@@ -1,7 +1,7 @@
 {
   "name": "sentinel-hq",
   "productName": "Sentinel HQ",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Sentinel HQ — escritorio del CEO",
   "author": "Sentinel",
@@ -28,6 +28,7 @@
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-progress": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
+    "@supabase/supabase-js": "^2.49.1",
     "@tanstack/react-router": "^1.114.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -92,7 +93,7 @@
       "maintainer": "Sentinel <sentinel@local>",
       "vendor": "Sentinel",
       "synopsis": "Sentinel HQ — escritorio del CEO",
-      "description": "Escritorio del CEO: empresa, finanzas, YouTube, pipeline, OS y cadencia. Cuentas locales multi-usuario.",
+      "description": "Escritorio del CEO con persistencia Supabase/Postgres.",
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "desktop": {
         "Name": "Sentinel HQ",
