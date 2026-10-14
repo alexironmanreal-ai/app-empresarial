@@ -5,7 +5,7 @@ import type { Priority } from "./types";
 import type { MpBalance } from "./mercadopago";
 import type { YtChannelStats, YtVideoStat } from "./youtube";
 import type { GhCommit, GhRepoSummary } from "./github";
-import { createUserScopedStorage, getCurrentUserId } from "./accounts";
+import { createUserScopedStorage, getCurrentUserId, migrateUserHqStorage } from "./accounts";
 
 export type Currency = "USD" | "ARS";
 export type Scenario = "conservative" | "base" | "optimistic";
@@ -283,13 +283,16 @@ export const useHq = create<HqState>()(
 /**
  * Tras login/logout: limpia el estado en memoria y rehidrata
  * los datos del usuario activo desde localStorage.
+ * No borra localStorage al cerrar sesión: solo limpia memoria.
  */
 export async function switchHqUser() {
   const uid = getCurrentUserId();
   if (!uid) {
+    // Solo estado en memoria; los datos del usuario quedan en localStorage
     useHq.setState({ ...initialState });
     return;
   }
+  migrateUserHqStorage(uid);
   // reset a defaults y luego rehydrate del storage del usuario
   useHq.setState({ ...initialState });
   await useHq.persist.rehydrate();
