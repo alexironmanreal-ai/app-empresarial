@@ -2,7 +2,47 @@
 
 Escritorio del CEO: empresa, finanzas, YouTube, pipeline, OS y cadencia.
 
-**v1.1** — Cuentas locales multi-usuario: cada cuenta guarda su propio progreso, caja, leads y tokens API en este dispositivo.
+**v1.2** — Persistencia en la nube con **Supabase (Postgres)** + caché local.
+
+## Persistencia en la nube (Supabase / Postgres) — recomendado
+
+Para que **tareas, caja, leads y registros no se borren** al cerrar sesión ni al cambiar de dispositivo:
+
+### 1. Proyecto Supabase
+
+1. Creá un proyecto en [https://supabase.com](https://supabase.com) (plan free alcanza).
+2. **SQL Editor** → New query → pegá y ejecutá el archivo `supabase/schema.sql` del repo.
+3. **Authentication → Providers → Email**:
+   - Activá Email.
+   - Para desarrollo, **desactivá “Confirm email”** (si no, hay que confirmar el mail antes de entrar).
+4. **Project Settings → API**: copiá **Project URL** y **anon public** key.
+
+### 2. Variables de entorno
+
+```bash
+cp .env.example .env
+```
+
+Editá `.env`:
+
+```
+VITE_SUPABASE_URL=https://XXXX.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
+```
+
+Reiniciá el servidor (`npm run dev`). La pantalla de login pasará a pedir **email + contraseña** y sincronizará el HQ con la tabla `hq_state`.
+
+### 3. Cómo funciona
+
+| Capa | Rol |
+|------|-----|
+| Supabase Auth | Registro / login (email) |
+| Tabla `hq_state` | JSON completo del HQ por `user_id` (RLS: solo vos ves tus filas) |
+| localStorage | Caché rápida offline; la nube gana al entrar |
+
+Sin `.env` de Supabase, la app sigue en modo **solo local** (como antes).
+
+---
 
 ## Requisitos
 
@@ -12,29 +52,10 @@ Escritorio del CEO: empresa, finanzas, YouTube, pipeline, OS y cadencia.
 ### Instalar Node en Ubuntu / Debian
 
 ```bash
-# Opción rápida (NodeSource 20.x)
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs
-
-# Verificar
-node -v   # v20.x
-npm -v
+node -v && npm -v
 ```
-
-En otras distros: usa el gestor de paquetes (`dnf`, `pacman`, `zypper`) o [nvm](https://github.com/nvm-sh/nvm).
-
----
-
-## Cuentas locales (persistencia por usuario)
-
-Al abrir la app verás **Entrar** o **Crear cuenta local**.
-
-- Usuario + contraseña (hash SHA-256, solo en este equipo).
-- Cada cuenta tiene su propio almacenamiento: tareas, finanzas, pipeline, YouTube, GitHub, onboarding.
-- Cerrar sesión vuelve a la pantalla de login; otra cuenta no ve los datos de la anterior.
-- “Reiniciar progreso” en Ajustes solo borra los datos de la cuenta actual.
-
-No hay servidor de autenticación: todo vive en `localStorage` del perfil de Electron / del navegador.
 
 ---
 
@@ -44,12 +65,11 @@ No hay servidor de autenticación: todo vive en `localStorage` del perfil de Ele
 git clone https://github.com/alexironmanreal-ai/app-empresarial.git
 cd app-empresarial
 npm install
+cp .env.example .env   # completar con Supabase
 npm run dev
 ```
 
 Abrí http://localhost:8080
-
-Probar en ventana Electron sin empaquetar:
 
 ```bash
 npm run electron:dev
@@ -62,70 +82,19 @@ npm run electron:dev
 ### Linux · AppImage + .deb
 
 ```bash
-npm install
-npm run dist:linux
-# equivalente: npm run electron:installer:linux
+npm install && npm run dist:linux
 ```
 
-Salida en `release/`:
-
-| Archivo | Uso |
-|---------|-----|
-| **Sentinel HQ-1.1.0-x64.AppImage** | Portable: Ubuntu, Fedora, Arch, openSUSE, etc. Sin instalar. |
-| **Sentinel HQ-1.1.0-x64.deb** | Instalador nativo Debian/Ubuntu (Mint, Pop!_OS, …) |
-
-#### AppImage
+### Windows · .exe
 
 ```bash
-chmod +x "release/Sentinel HQ-1.1.0-x64.AppImage"
-./"release/Sentinel HQ-1.1.0-x64.AppImage"
-```
-
-#### .deb (Ubuntu / Debian)
-
-```bash
-sudo dpkg -i "release/Sentinel HQ-1.1.0-x64.deb"
-sudo apt-get install -f   # si faltan dependencias
-```
-
-Desinstalar: `sudo apt remove sentinel-hq`
-
-> Conviene compilar Linux **en Linux**.
-
-### Windows · .exe (instalador + portable)
-
-```bash
-npm install
-npm run dist:win
-# o solo NSIS: npm run electron:build
-```
-
-Salida en `release/`:
-
-- **Sentinel HQ-Setup-1.1.0.exe** — instalador NSIS
-- **Sentinel HQ-Portable-1.1.0.exe** — portable (sin instalar)
-
-> El build del `.exe` conviene hacerlo **en Windows**.
-
-### Todo (Windows + Linux)
-
-```bash
-npm run dist:all
+npm install && npm run dist:win
 ```
 
 ---
 
-## Qué incluye el empaquetado
-
-- Toda la UI (HQ, tareas, tracker, registros, pipeline, YT, OS, CEO)
-- Proxy local para YouTube / Mercado Pago / GitHub (`/api/...`)
-- Cuentas locales multi-usuario con datos aislados por cuenta
-- Persistencia en el perfil de Electron / localStorage
-
 ## Notas
 
-- Progreso en `localStorage` (Zustand), clave por `userId`.
-- YouTube: API key + handle en el módulo.
-- Pipeline: leads hasta cobrado.
-- OS: repo GitHub + commits.
-- Registros: export CSV.
+- Con Supabase configurado, los datos sobreviven logout y otros dispositivos.
+- Tokens de APIs (MP, YT, GH) también van en el JSON de `hq_state` (protegido por RLS).
+- Pipeline, registros, caja y tareas se sincronizan unos 600 ms después de cada cambio.
