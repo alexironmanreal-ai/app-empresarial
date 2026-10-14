@@ -5,7 +5,9 @@ import type { Priority } from "./types";
 import type { MpBalance } from "./mercadopago";
 import type { YtChannelStats, YtVideoStat } from "./youtube";
 import type { GhCommit, GhRepoSummary } from "./github";
-import { createUserScopedStorage, getCurrentUserId, migrateUserHqStorage } from "./accounts";
+import { createUserScopedStorage, getCurrentUserId, getSession, migrateUserHqStorage } from "./accounts";
+import { loadHqFromCloud, saveHqToCloud } from "./cloud-sync";
+import { isSupabaseConfigured } from "./supabase";
 
 export type Currency = "USD" | "ARS";
 export type Scenario = "conservative" | "base" | "optimistic";
@@ -274,28 +276,101 @@ export const useHq = create<HqState>()(
     {
       name: "axion-hq-v4",
       storage: createJSONStorage(() => createUserScopedStorage("axion-hq-v4")),
-      // no rehidratar hasta que haya sesión (evita mezclar datos)
       skipHydration: true,
     },
   ),
 );
 
-/**
- * Tras login/logout: limpia el estado en memoria y rehidrata
- * los datos del usuario activo desde localStorage.
- * No borra localStorage al cerrar sesión: solo limpia memoria.
- */
+const PERSIST_KEYS = [
+  "done",
+  "profile",
+  "currency",
+  "scenario",
+  "onboarded",
+  "focusP0",
+  "mpToken",
+  "mpBalance",
+  "caja",
+  "dayLog",
+  "dayNotes",
+  "daySnapshots",
+  "lastReviewAt",
+  "extraMonthlyBurnArs",
+  "ytApiKey",
+  "ytChannelInput",
+  "ytStats",
+  "ytVideos",
+  "ytHistory",
+  "leads",
+  "ghRepoInput",
+  "ghToken",
+  "ghSummary",
+  "ghCommits",
+] as const;
+
+export function pickHqSlice(state: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  for (const k of PERSIST_KEYS) {
+    if (k in state) out[k] = state[k];
+  }
+  return out;
+}
+
+let cloudSaveTimer: ReturnType<typeof setTimeout> | null = null;
+let cloudSyncStarted = false;
+
+export function scheduleCloudSave() {
+  const session = getSession();
+  if (!session || session.mode !== "cloud" || !isSupabaseConfigured) return;
+  if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
+  cloudSaveTimer = setTimeout(() => {
+    void flushCloudSave();
+  }, 600);
+}
+
+export async function flushCloudSave() {
+  const session = getSession();
+  if (!session || session.mode !== "cloud" || !isSupabaseConfigured) return;
+  const slice = pickHqSlice(useHq.getState() as unknown as Record<string, unknown>);
+  await saveHqToCloud(session.userId, slice);
+}
+
+export function startCloudSync() {
+  if (cloudSyncStarted) return;
+  cloudSyncStarted = true;
+  useHq.subscribe(() => {
+    scheduleCloudSave();
+  });
+  if (typeof window !== "undefined") {
+    window.addEventListener("beforeunload", () => {
+      void flushCloudSave();
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "hidden") void flushCloudSave();
+    });
+  }
+}
+
 export async function switchHqUser() {
   const uid = getCurrentUserId();
   if (!uid) {
-    // Solo estado en memoria; los datos del usuario quedan en localStorage
     useHq.setState({ ...initialState });
     return;
   }
   migrateUserHqStorage(uid);
-  // reset a defaults y luego rehydrate del storage del usuario
   useHq.setState({ ...initialState });
   await useHq.persist.rehydrate();
+
+  const session = getSession();
+  if (session?.mode === "cloud" && isSupabaseConfigured) {
+    const remote = await loadHqFromCloud(uid);
+    if (remote && Object.keys(remote).length > 0) {
+      useHq.setState({ ...remote });
+    } else {
+      await flushCloudSave();
+    }
+    startCloudSync();
+  }
 }
 
 export function isTaskComplete(
