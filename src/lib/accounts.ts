@@ -1,7 +1,11 @@
 /**
- * Cuentas locales (solo este dispositivo).
- * Cada usuario tiene su propio almacenamiento Zustand (persistencia aislada).
+ * Auth + sesión.
+ * - Con VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY → Supabase Auth (email) + datos en Postgres.
+ * - Sin config → cuentas locales en este dispositivo (fallback).
  */
+
+import { getSupabase, isSupabaseConfigured } from "./supabase";
+import { deleteHqFromCloud } from "./cloud-sync";
 
 export type LocalAccount = {
   id: string;
@@ -15,12 +19,17 @@ export type Session = {
   userId: string;
   username: string;
   displayName: string;
+  /** 'cloud' = Supabase; 'local' = solo este dispositivo */
+  mode: "cloud" | "local";
 };
 
 const ACCOUNTS_KEY = "sentinel-hq-accounts-v1";
 const SESSION_KEY = "sentinel-hq-session-v1";
-/** Nombre base del store Zustand (debe coincidir con `name` en store.ts) */
 export const HQ_PERSIST_NAME = "axion-hq-v4";
+
+export function cloudEnabled(): boolean {
+  return isSupabaseConfigured;
+}
 
 function readAccounts(): LocalAccount[] {
   try {
@@ -46,6 +55,7 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 export function listAccounts(): Omit<LocalAccount, "passwordHash">[] {
+  if (cloudEnabled()) return [];
   return readAccounts().map(({ passwordHash: _, ...rest }) => rest);
 }
 
@@ -53,7 +63,10 @@ export function getSession(): Session | null {
   try {
     const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as Session;
+    const s = JSON.parse(raw) as Session;
+    if (!s.userId) return null;
+    if (!s.mode) s.mode = cloudEnabled() ? "cloud" : "local";
+    return s;
   } catch {
     return null;
   }
@@ -71,24 +84,14 @@ export function getCurrentUserId(): string | null {
   return getSession()?.userId ?? null;
 }
 
-/**
- * Clave real en localStorage del persist de Zustand.
- * Formato: `${HQ_PERSIST_NAME}:${userId}` (lo que escribe createUserScopedStorage).
- * También migra la clave antigua `axion-hq-v4-u-${userId}` si existe.
- */
 export function hqStorageKey(userId: string | null | undefined): string {
   return userId ? `${HQ_PERSIST_NAME}:${userId}` : `${HQ_PERSIST_NAME}:guest`;
 }
 
-/** Clave legacy (bug anterior) */
 function hqStorageKeyLegacy(userId: string): string {
   return `axion-hq-v4-u-${userId}`;
 }
 
-/**
- * Si hay datos bajo la clave vieja y no bajo la nueva, los mueve.
- * Así no se pierden registros guardados con la clave incorrecta.
- */
 export function migrateUserHqStorage(userId: string): void {
   try {
     const correct = hqStorageKey(userId);
@@ -104,11 +107,99 @@ export function migrateUserHqStorage(userId: string): void {
   }
 }
 
+function normalizeEmail(input: string): string {
+  return input.trim().toLowerCase();
+}
+
+function isEmail(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+function mapAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login") || m.includes("invalid credentials")) {
+    return "Email o contraseña incorrectos.";
+  }
+  if (m.includes("already registered") || m.includes("already been registered")) {
+    return "Ese email ya está registrado. Probá entrar.";
+  }
+  if (m.includes("password")) return "Contraseña inválida (mín. 6 caracteres en Supabase).";
+  if (m.includes("email")) return "Email inválido.";
+  if (m.includes("confirm")) {
+    return "Revisá tu email para confirmar la cuenta (o desactivá confirmación en Supabase Auth).";
+  }
+  return message || "Error de autenticación.";
+}
+
+/** Restaura sesión desde Supabase al arrancar (tokens en localStorage del SDK). */
+export async function restoreCloudSession(): Promise<Session | null> {
+  if (!cloudEnabled()) return getSession()?.mode === "local" ? getSession() : null;
+  const sb = getSupabase();
+  if (!sb) return null;
+
+  const { data, error } = await sb.auth.getSession();
+  if (error || !data.session?.user) {
+    setSession(null);
+    return null;
+  }
+  const user = data.session.user;
+  const session: Session = {
+    userId: user.id,
+    username: user.email ?? user.id,
+    displayName:
+      (user.user_metadata?.display_name as string | undefined) ||
+      user.email?.split("@")[0] ||
+      "Usuario",
+    mode: "cloud",
+  };
+  setSession(session);
+  return session;
+}
+
 export async function registerAccount(
   username: string,
   password: string,
   displayName?: string,
 ): Promise<{ ok: true; session: Session } | { ok: false; error: string }> {
+  if (cloudEnabled()) {
+    const email = normalizeEmail(username);
+    if (!isEmail(email)) {
+      return { ok: false, error: "Usá un email válido (ej. vos@empresa.com)." };
+    }
+    if (password.length < 6) {
+      return { ok: false, error: "Contraseña demasiado corta (mín. 6)." };
+    }
+    const sb = getSupabase()!;
+    const name = (displayName || email.split("@")[0]).trim();
+    const { data, error } = await sb.auth.signUp({
+      email,
+      password,
+      options: { data: { display_name: name } },
+    });
+    if (error) return { ok: false, error: mapAuthError(error.message) };
+    if (!data.user) {
+      return {
+        ok: false,
+        error: "Cuenta creada. Si pide confirmación, revisá el email y luego entrá.",
+      };
+    }
+    if (!data.session) {
+      return {
+        ok: false,
+        error:
+          "Cuenta creada. Confirmá el email (o en Supabase: Auth → Providers → Email → desactivar “Confirm email”) y volvé a entrar.",
+      };
+    }
+    const session: Session = {
+      userId: data.user.id,
+      username: email,
+      displayName: name,
+      mode: "cloud",
+    };
+    setSession(session);
+    return { ok: true, session };
+  }
+
   const u = username.trim().toLowerCase();
   if (u.length < 2) return { ok: false, error: "Usuario demasiado corto (mín. 2)." };
   if (password.length < 4) return { ok: false, error: "Contraseña demasiado corta (mín. 4)." };
@@ -133,6 +224,7 @@ export async function registerAccount(
     userId: id,
     username: account.username,
     displayName: account.displayName,
+    mode: "local",
   };
   setSession(session);
   return { ok: true, session };
@@ -142,6 +234,30 @@ export async function loginAccount(
   username: string,
   password: string,
 ): Promise<{ ok: true; session: Session } | { ok: false; error: string }> {
+  if (cloudEnabled()) {
+    const email = normalizeEmail(username);
+    if (!isEmail(email)) {
+      return { ok: false, error: "Usá el email con el que te registraste." };
+    }
+    const sb = getSupabase()!;
+    const { data, error } = await sb.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) return { ok: false, error: mapAuthError(error.message) };
+    if (!data.user) return { ok: false, error: "No se pudo iniciar sesión." };
+    const session: Session = {
+      userId: data.user.id,
+      username: email,
+      displayName:
+        (data.user.user_metadata?.display_name as string | undefined) ||
+        email.split("@")[0],
+      mode: "cloud",
+    };
+    setSession(session);
+    return { ok: true, session };
+  }
+
   const u = username.trim().toLowerCase();
   const accounts = readAccounts();
   const account = accounts.find((a) => a.username === u);
@@ -156,25 +272,42 @@ export async function loginAccount(
     userId: account.id,
     username: account.username,
     displayName: account.displayName,
+    mode: "local",
   };
   setSession(session);
-  // Migrar datos si estaban bajo la clave legacy
   migrateUserHqStorage(account.id);
   return { ok: true, session };
 }
 
-export function logoutAccount() {
+export async function logoutAccount(): Promise<void> {
+  if (cloudEnabled()) {
+    const sb = getSupabase();
+    if (sb) await sb.auth.signOut();
+  }
   setSession(null);
 }
 
-export function deleteAccount(userId: string, passwordHashConfirm?: string): boolean {
+export async function deleteAccount(
+  userId: string,
+  passwordHashConfirm?: string,
+): Promise<boolean> {
+  if (cloudEnabled()) {
+    await deleteHqFromCloud(userId);
+    await logoutAccount();
+    try {
+      localStorage.removeItem(hqStorageKey(userId));
+    } catch {
+      /* ignore */
+    }
+    return true;
+  }
+
   const accounts = readAccounts();
   const account = accounts.find((a) => a.id === userId);
   if (!account) return false;
   if (passwordHashConfirm && account.passwordHash !== passwordHashConfirm) return false;
 
   writeAccounts(accounts.filter((a) => a.id !== userId));
-  // limpia datos del HQ de ese usuario (clave correcta + legacy)
   try {
     localStorage.removeItem(hqStorageKey(userId));
     localStorage.removeItem(hqStorageKeyLegacy(userId));
@@ -186,17 +319,11 @@ export function deleteAccount(userId: string, passwordHashConfirm?: string): boo
   return true;
 }
 
-/**
- * Storage Zustand aislado por usuario.
- * Zustand pasa `name` (p.ej. "axion-hq-v4") a getItem/setItem/removeItem;
- * nosotros lo convertimos en `${name}:${userId}`.
- */
 export function createUserScopedStorage(_baseName?: string) {
   return {
     getItem: (name: string): string | null => {
       const uid = getCurrentUserId();
       if (!uid) return null;
-      // Intentar clave correcta; si no hay, intentar legacy y migrar
       const key = `${name}:${uid}`;
       let value = localStorage.getItem(key);
       if (value == null) {
