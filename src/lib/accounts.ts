@@ -19,6 +19,8 @@ export type Session = {
 
 const ACCOUNTS_KEY = "sentinel-hq-accounts-v1";
 const SESSION_KEY = "sentinel-hq-session-v1";
+/** Nombre base del store Zustand (debe coincidir con `name` en store.ts) */
+export const HQ_PERSIST_NAME = "axion-hq-v4";
 
 function readAccounts(): LocalAccount[] {
   try {
@@ -69,9 +71,37 @@ export function getCurrentUserId(): string | null {
   return getSession()?.userId ?? null;
 }
 
-/** Clave de persistencia Zustand por usuario */
+/**
+ * Clave real en localStorage del persist de Zustand.
+ * Formato: `${HQ_PERSIST_NAME}:${userId}` (lo que escribe createUserScopedStorage).
+ * También migra la clave antigua `axion-hq-v4-u-${userId}` si existe.
+ */
 export function hqStorageKey(userId: string | null | undefined): string {
-  return userId ? `axion-hq-v4-u-${userId}` : "axion-hq-v4-guest";
+  return userId ? `${HQ_PERSIST_NAME}:${userId}` : `${HQ_PERSIST_NAME}:guest`;
+}
+
+/** Clave legacy (bug anterior) */
+function hqStorageKeyLegacy(userId: string): string {
+  return `axion-hq-v4-u-${userId}`;
+}
+
+/**
+ * Si hay datos bajo la clave vieja y no bajo la nueva, los mueve.
+ * Así no se pierden registros guardados con la clave incorrecta.
+ */
+export function migrateUserHqStorage(userId: string): void {
+  try {
+    const correct = hqStorageKey(userId);
+    const legacy = hqStorageKeyLegacy(userId);
+    const hasCorrect = localStorage.getItem(correct);
+    const hasLegacy = localStorage.getItem(legacy);
+    if (!hasCorrect && hasLegacy) {
+      localStorage.setItem(correct, hasLegacy);
+      localStorage.removeItem(legacy);
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 export async function registerAccount(
@@ -128,6 +158,8 @@ export async function loginAccount(
     displayName: account.displayName,
   };
   setSession(session);
+  // Migrar datos si estaban bajo la clave legacy
+  migrateUserHqStorage(account.id);
   return { ok: true, session };
 }
 
@@ -142,9 +174,10 @@ export function deleteAccount(userId: string, passwordHashConfirm?: string): boo
   if (passwordHashConfirm && account.passwordHash !== passwordHashConfirm) return false;
 
   writeAccounts(accounts.filter((a) => a.id !== userId));
-  // limpia datos del HQ de ese usuario
+  // limpia datos del HQ de ese usuario (clave correcta + legacy)
   try {
     localStorage.removeItem(hqStorageKey(userId));
+    localStorage.removeItem(hqStorageKeyLegacy(userId));
   } catch {
     /* ignore */
   }
@@ -153,13 +186,29 @@ export function deleteAccount(userId: string, passwordHashConfirm?: string): boo
   return true;
 }
 
-/** Storage Zustand aislado por usuario (lee/escribe la clave del usuario actual) */
-export function createUserScopedStorage(baseName: string) {
+/**
+ * Storage Zustand aislado por usuario.
+ * Zustand pasa `name` (p.ej. "axion-hq-v4") a getItem/setItem/removeItem;
+ * nosotros lo convertimos en `${name}:${userId}`.
+ */
+export function createUserScopedStorage(_baseName?: string) {
   return {
     getItem: (name: string): string | null => {
       const uid = getCurrentUserId();
       if (!uid) return null;
-      return localStorage.getItem(`${name}:${uid}`);
+      // Intentar clave correcta; si no hay, intentar legacy y migrar
+      const key = `${name}:${uid}`;
+      let value = localStorage.getItem(key);
+      if (value == null) {
+        const legacy = `axion-hq-v4-u-${uid}`;
+        const old = localStorage.getItem(legacy);
+        if (old != null) {
+          localStorage.setItem(key, old);
+          localStorage.removeItem(legacy);
+          value = old;
+        }
+      }
+      return value;
     },
     setItem: (name: string, value: string): void => {
       const uid = getCurrentUserId();
@@ -170,6 +219,11 @@ export function createUserScopedStorage(baseName: string) {
       const uid = getCurrentUserId();
       if (!uid) return;
       localStorage.removeItem(`${name}:${uid}`);
+      try {
+        localStorage.removeItem(`axion-hq-v4-u-${uid}`);
+      } catch {
+        /* ignore */
+      }
     },
   };
 }
