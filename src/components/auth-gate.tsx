@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import {
+  cloudEnabled,
   getSession,
   listAccounts,
   loginAccount,
   registerAccount,
+  restoreCloudSession,
   migrateUserHqStorage,
   type Session,
 } from "@/lib/accounts";
@@ -19,7 +21,7 @@ export function AuthGate({
 }: {
   children: (session: Session) => React.ReactNode;
 }) {
-  const [session, setSessionState] = useState<Session | null>(() => getSession());
+  const [session, setSessionState] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
   const [mode, setMode] = useState<Mode>("login");
   const [username, setUsername] = useState("");
@@ -27,13 +29,32 @@ export function AuthGate({
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const cloud = cloudEnabled();
   const accounts = listAccounts();
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      try {
+        if (cloud) {
+          const s = await restoreCloudSession();
+          if (!cancelled) setSessionState(s);
+        } else {
+          if (!cancelled) setSessionState(getSession());
+        }
+      } finally {
+        /* ready tras switchHqUser */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [cloud]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
       if (session) {
-        // Asegura migración de clave legacy y carga datos del usuario
         migrateUserHqStorage(session.userId);
         await switchHqUser();
       }
@@ -57,6 +78,7 @@ export function AuthGate({
         setError(result.error);
         return;
       }
+      setReady(false);
       setSessionState(result.session);
       setPassword("");
     } finally {
@@ -67,7 +89,9 @@ export function AuthGate({
   if (!ready) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg text-muted">
-        <p className="font-mono text-sm">Cargando…</p>
+        <p className="font-mono text-sm">
+          {cloud ? "Sincronizando con la nube…" : "Cargando…"}
+        </p>
       </div>
     );
   }
@@ -80,14 +104,30 @@ export function AuthGate({
             Sentinel HQ
           </p>
           <h1 className="mt-2 font-display text-3xl">
-            {mode === "login" ? "Entrar" : "Crear cuenta local"}
+            {mode === "login"
+              ? "Entrar"
+              : cloud
+                ? "Crear cuenta"
+                : "Crear cuenta local"}
           </h1>
           <p className="mt-2 text-sm text-muted">
-            Cuentas solo en este dispositivo. Cada usuario guarda su propio
-            progreso, caja, pipeline y claves API.
+            {cloud ? (
+              <>
+                Datos en <strong className="text-fg">Supabase / Postgres</strong>
+                : sobreviven al cerrar sesión y en cualquier dispositivo con las
+                mismas credenciales.
+              </>
+            ) : (
+              <>
+                Sin Supabase configurado: cuentas solo en este dispositivo. Para
+                nube, creá un proyecto y definí{" "}
+                <code className="text-xs">VITE_SUPABASE_URL</code> y{" "}
+                <code className="text-xs">VITE_SUPABASE_ANON_KEY</code>.
+              </>
+            )}
           </p>
 
-          {accounts.length > 0 && mode === "login" && (
+          {!cloud && accounts.length > 0 && mode === "login" && (
             <div className="mt-4 rounded-md bg-elevated/60 px-3 py-2">
               <p className="font-mono text-[10px] uppercase tracking-wider text-subtle">
                 Cuentas en este equipo
@@ -125,13 +165,14 @@ export function AuthGate({
               </div>
             )}
             <div>
-              <Label>Usuario</Label>
+              <Label>{cloud ? "Email" : "Usuario"}</Label>
               <Input
                 className="mt-1.5"
+                type={cloud ? "email" : "text"}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="usuario"
-                autoComplete="username"
+                placeholder={cloud ? "vos@empresa.com" : "usuario"}
+                autoComplete={cloud ? "email" : "username"}
                 required
               />
             </div>
@@ -142,8 +183,10 @@ export function AuthGate({
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••"
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
+                placeholder="••••••••"
+                autoComplete={
+                  mode === "login" ? "current-password" : "new-password"
+                }
                 required
               />
             </div>
@@ -173,7 +216,7 @@ export function AuthGate({
                     setError("");
                   }}
                 >
-                  Crear cuenta local
+                  {cloud ? "Crear cuenta" : "Crear cuenta local"}
                 </button>
               </>
             ) : (
