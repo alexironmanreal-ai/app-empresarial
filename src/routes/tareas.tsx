@@ -28,6 +28,7 @@ const CATS: { id: Category | "all"; label: string }[] = [
 
 function Tareas() {
   const done = useHq((s) => s.done);
+  const killedTaskIds = useHq((s) => s.killedTaskIds);
   const focusP0 = useHq((s) => s.focusP0);
   const setFocusP0 = useHq((s) => s.setFocusP0);
   const [prio, setPrio] = useState<Priority | "all">("all");
@@ -41,9 +42,10 @@ function Tareas() {
       if (!focusP0 && prio !== "all" && t.priority !== prio) return false;
       if (cat !== "all" && t.category !== cat) return false;
       if (hideDone && isTaskComplete(t.id, t.subtasks.map((s) => s.id), done)) return false;
+      if (killedTaskIds.includes(t.id)) return false;
       return true;
     });
-  }, [prio, cat, hideDone, done, focusP0]);
+  }, [prio, cat, hideDone, done, focusP0, killedTaskIds]);
 
   const byPrio = (["p0", "p1", "p2", "p3"] as Priority[]).map((p) => {
     const items = TASKS.filter((t) => t.priority === p);
