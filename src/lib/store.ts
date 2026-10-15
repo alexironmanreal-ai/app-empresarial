@@ -10,6 +10,7 @@ import { loadHqFromCloud, saveHqToCloud } from "./cloud-sync";
 import { isSupabaseConfigured } from "./supabase";
 import type { Contract } from "./contracts";
 import { DEFAULT_CONTRACTS } from "./contracts";
+import { DEFAULT_CV, type CvData } from "./cv";
 
 export type Currency = "USD" | "ARS";
 export type Scenario = "conservative" | "base" | "optimistic";
@@ -20,6 +21,8 @@ export type Profile = {
   os: string;
   youtube: string;
   niche: string;
+  /** Logo de empresa (data URL, comprimido) */
+  logoDataUrl: string;
 };
 
 export type CajaRow = {
@@ -91,6 +94,7 @@ type HqState = {
   ghSummary: GhRepoSummary | null;
   ghCommits: GhCommit[];
   deepWork: boolean;
+  cv: CvData;
   contracts: Contract[];
   killedTaskIds: string[];
   algorithmDone: Record<string, boolean>;
@@ -122,6 +126,8 @@ type HqState = {
   setGhToken: (v: string) => void;
   setGhData: (summary: GhRepoSummary | null, commits: GhCommit[]) => void;
   setDeepWork: (v: boolean) => void;
+  setCv: (p: Partial<CvData>) => void;
+  setLogo: (dataUrl: string) => void;
   toggleContract: (id: string) => void;
   killTask: (id: string) => void;
   reviveTask: (id: string) => void;
@@ -135,6 +141,7 @@ const DEFAULT_PROFILE: Profile = {
   os: "Sentinel OS",
   youtube: "Sentinel",
   niche: "Construir un sistema operativo en público + el oficio de CEO",
+  logoDataUrl: "",
 };
 
 const DEFAULT_CAJA: CajaRow[] = [
@@ -172,6 +179,7 @@ const initialState = {
   contracts: DEFAULT_CONTRACTS,
   killedTaskIds: [] as string[],
   algorithmDone: {} as Record<string, boolean>,
+  cv: DEFAULT_CV as CvData,
 };
 
 export const useHq = create<HqState>()(
@@ -313,12 +321,39 @@ export const useHq = create<HqState>()(
             },
           };
         }),
+      setCv: (patch) =>
+        set((s) => ({
+          cv: { ...s.cv, ...patch },
+        })),
+      setLogo: (logoDataUrl) =>
+        set((s) => ({
+          profile: { ...s.profile, logoDataUrl },
+        })),
       reset: () => set({ ...initialState }),
     }),
     {
-      name: "axion-hq-v5",
-      storage: createJSONStorage(() => createUserScopedStorage("axion-hq-v5")),
+      name: "axion-hq-v6",
+      storage: createJSONStorage(() => createUserScopedStorage("axion-hq-v6")),
       skipHydration: true,
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Record<string, unknown>;
+        return {
+          ...current,
+          ...p,
+          profile: {
+            ...DEFAULT_PROFILE,
+            ...((p.profile as object) ?? {}),
+          },
+          cv: {
+            ...DEFAULT_CV,
+            ...((p.cv as object) ?? {}),
+          },
+          contracts:
+            Array.isArray(p.contracts) && (p.contracts as unknown[]).length
+              ? (p.contracts as typeof DEFAULT_CONTRACTS)
+              : DEFAULT_CONTRACTS,
+        } as typeof current;
+      },
     },
   ),
 );
@@ -352,6 +387,7 @@ const PERSIST_KEYS = [
   "contracts",
   "killedTaskIds",
   "algorithmDone",
+  "cv",
 ] as const;
 
 export function pickHqSlice(state: Record<string, unknown>) {
