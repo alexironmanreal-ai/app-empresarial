@@ -14,7 +14,7 @@ export const ALGORITHM_STEPS = [
     id: "req",
     n: 1,
     title: "¿El requisito es físico?",
-    detail: "¿Sale de la física del negocio o es herencia / ego / se ve bien?",
+    detail: "¿Sale de la física del negocio o es herencia / ego / “se ve bien”?",
   },
   {
     id: "delete",
@@ -38,7 +38,7 @@ export const ALGORITHM_STEPS = [
     id: "automate",
     n: 5,
     title: "¿Se puede automatizar?",
-    detail: "Solo después de borrar y simplificar. No automatizar basura.",
+    detail: "Solo después de borrar y simplificar. No automatices basura.",
   },
 ] as const;
 
@@ -74,17 +74,19 @@ export function runwayMonths(runwayDays: number): number {
   return Math.round((runwayDays / 30) * 10) / 10;
 }
 
-/** Tareas abiertas de bajo impacto → candidatas a kill */
+/** Tareas abiertas sin touch reciente → candidatas a kill */
 export function killCandidates(
   done: Record<string, boolean>,
   killedIds: string[],
-  _staleDays = 30,
+  staleDays = 30,
 ): Task[] {
   const killed = new Set(killedIds);
   return TASKS.filter((t) => {
     if (killed.has(t.id)) return false;
     if (isTaskComplete(t.id, t.subtasks.map((s) => s.id), done)) return false;
+    // P0 no se mata por stale automático
     if (t.priority === "p0") return false;
+    // Heurística: P3 siempre candidato; P2 si days altos
     if (t.priority === "p3") return true;
     if (t.priority === "p2" && t.days >= 60) return true;
     return t.impact <= 5 && t.days >= 30;
