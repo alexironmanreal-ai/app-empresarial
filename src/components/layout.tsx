@@ -4,7 +4,6 @@ import {
   Briefcase,
   Building2,
   CalendarDays,
-  Clock,
   Cpu,
   Handshake,
   LayoutDashboard,
@@ -14,7 +13,9 @@ import {
   Settings2,
   Wallet,
   Youtube,
+  Clock,
   Zap,
+  FileText,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
@@ -24,6 +25,7 @@ import { Label } from "./ui/label";
 import { companyScore, switchHqUser, useHq } from "@/lib/store";
 import { logoutAccount, type Session } from "@/lib/accounts";
 import { cn } from "@/lib/utils";
+import { CompanyLogo, LogoUploader } from "./logo-uploader";
 
 const NAV = [
   { to: "/", label: "HQ", icon: LayoutDashboard },
@@ -37,6 +39,7 @@ const NAV = [
   { to: "/youtube", label: "YouTube", icon: Youtube },
   { to: "/os", label: "OS", icon: Cpu },
   { to: "/ceo", label: "CEO", icon: Briefcase },
+  { to: "/cv", label: "CV", icon: FileText },
 ];
 
 export function Shell({
@@ -54,26 +57,31 @@ export function Shell({
   const setDeepWork = useHq((s) => s.setDeepWork);
 
   useEffect(() => {
-    void useHq.persist.rehydrate();
-  }, []);
-
-  useEffect(() => {
     document.body.classList.toggle("deep-work-lock", deepWork);
     return () => document.body.classList.remove("deep-work-lock");
   }, [deepWork]);
+
+  useEffect(() => {
+    void useHq.persist.rehydrate();
+  }, []);
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-56 flex-col border-r border-border bg-bg lg:flex">
         <div className="px-5 pb-2 pt-6">
-          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-subtle">
-            {profile.company}
-          </p>
-          <p className="font-display text-3xl leading-none text-fg">HQ</p>
-          <p className="mt-1 truncate text-xs text-muted" title={session.username}>
+          <div className="flex items-center gap-3">
+            <CompanyLogo src={profile.logoDataUrl ?? ""} company={profile.company} size="md" />
+            <div className="min-w-0">
+              <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-subtle truncate">
+                {profile.company}
+              </p>
+              <p className="font-display text-3xl leading-none text-fg">HQ</p>
+            </div>
+          </div>
+          <p className="mt-2 truncate text-xs text-muted" title={session.username}>
             {session.displayName}
           </p>
-          <p className="mt-3 font-mono text-[11px] tabular-nums text-muted">
+          <p className="mt-2 font-mono text-[11px] tabular-nums text-muted">
             {Math.round(score * 100)}% construida
           </p>
         </div>
@@ -104,7 +112,7 @@ export function Shell({
             size="sm"
             className="w-full gap-2"
             onClick={() => setDeepWork(!deepWork)}
-            title="Deep Work Lock: foco maker / P0"
+            title="Deep Work Lock: foco en maker / P0"
           >
             <Zap className="size-3.5" />
             {deepWork ? "Deep Work ON" : "Deep Work"}
@@ -115,12 +123,14 @@ export function Shell({
       </aside>
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-bg/90 px-4 py-3 backdrop-blur-sm lg:hidden">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-subtle">
-            {profile.company}
-          </p>
-          <p className="font-display text-xl leading-none">HQ</p>
-          <p className="text-[11px] text-muted">{session.displayName}</p>
+        <div className="flex items-center gap-3">
+          <CompanyLogo src={profile.logoDataUrl ?? ""} company={profile.company} size="sm" />
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-subtle">
+              {profile.company}
+            </p>
+            <p className="font-display text-xl leading-none">HQ</p>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -225,6 +235,15 @@ function SettingsDialog({ session }: { session: Session }) {
           <Field label="OS" value={profile.os} onChange={(v) => setProfile({ os: v })} />
           <Field label="YouTube (nombre)" value={profile.youtube} onChange={(v) => setProfile({ youtube: v })} />
           <Field label="Nicho" value={profile.niche} onChange={(v) => setProfile({ niche: v })} />
+          <div>
+            <Label>Logo de la empresa</Label>
+            <div className="mt-1.5">
+              <LogoUploader
+                value={profile.logoDataUrl ?? ""}
+                onChange={(logoDataUrl) => setProfile({ logoDataUrl })}
+              />
+            </div>
+          </div>
           <div>
             <Label>Moneda</Label>
             <div className="mt-1.5 flex gap-2">
