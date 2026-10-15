@@ -1,33 +1,33 @@
 export type Contract = {
   id: string;
   title: string;
-  description: string;
-  done: boolean;
+  rule: string;
+  active: boolean;
 };
 
 export const DEFAULT_CONTRACTS: Contract[] = [
   {
-    id: "maker-hours",
-    title: "Maker hours > Manager hours",
-    description: "Mínimo 4h de trabajo profundo (maker) antes de reuniones/email.",
-    done: false,
+    id: "c-os-hours",
+    title: "Maker OS",
+    rule: "≥15 h/semana de OS o no hay bloque de marca el viernes.",
+    active: true,
   },
   {
-    id: "no-context-switch",
-    title: "Zero context switching",
-    description: "Un solo foco por bloque. Sin tabs de distracción.",
-    done: false,
+    id: "c-outreach",
+    title: "Pipeline",
+    rule: "10 conversaciones de venta/semana o el viernes no cierra en YT.",
+    active: true,
   },
   {
-    id: "kill-non-critical",
-    title: "Kill non-critical tasks",
-    description: "Si no mueve YT hours, OS, producto o cash: kill.",
-    done: false,
+    id: "c-yt-streak",
+    title: "Cadencia YT",
+    rule: "1 video/semana. 2 fallos seguidos = review obligatoria del nicho.",
+    active: true,
   },
   {
-    id: "ship-daily",
-    title: "Ship something daily",
-    description: "Al menos 1 deliverable público o interno al final del día.",
-    done: false,
+    id: "c-p0",
+    title: "P0 primero",
+    rule: "Sin P0 abiertos de legal/fiscal, no se empieza feature nueva del OS.",
+    active: true,
   },
 ];
