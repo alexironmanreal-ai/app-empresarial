@@ -17,8 +17,9 @@ export {
   OS_PHASES,
   RATE_CARD,
   CEO_CADENCE,
-  TIME_GOALS,
 } from "./data-meta";
+
+export { TIME_GOALS } from "./time-goals";
 
 export const WEIGHT: Record<Task["priority"], number> = {
   p0: 4,
