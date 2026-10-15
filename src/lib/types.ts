@@ -91,3 +91,26 @@ export type Gap = {
   time: string;
   costUsd: number;
 };
+
+/** Meta de largo plazo con curva de horas/años restantes */
+export type TimeGoal = {
+  id: string;
+  title: string;
+  description: string;
+  /** Horas totales estimadas para completar desde cero */
+  hoursTotal: number;
+  /** Años estimados a ritmo sostenible (h/semana típicas) */
+  yearsEstimate: number;
+  /** Horas semanales asumidas para el cálculo de años */
+  hoursPerWeek: number;
+  /** Categoría para filtrar / colorear */
+  category: "youtube" | "os" | "skill" | "empresa" | "network" | "revenue";
+  /** Criterio de "hecho" legible */
+  doneWhen: string;
+  /** IDs de tareas del tablero que aportan progreso (opcional) */
+  linkedTaskIds?: string[];
+  /** Estado inicial (0–100). Se combina con tareas hechas y datos live (YT, GH) */
+  baselinePct: number;
+  /** Orden de visualización */
+  order: number;
+};
