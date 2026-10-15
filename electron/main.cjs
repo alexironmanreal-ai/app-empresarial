@@ -9,6 +9,12 @@ const https = require("https");
 const fs = require("fs");
 const { URL } = require("url");
 
+// Linux empaquetado: evita crash de chrome-sandbox / zygote si el SUID no está bien
+if (process.platform === "linux") {
+  app.commandLine.appendSwitch("no-sandbox");
+  app.commandLine.appendSwitch("disable-gpu-sandbox");
+}
+
 const isDev = !app.isPackaged;
 const DIST = path.join(__dirname, "..", "dist");
 const HOST = "127.0.0.1";
@@ -141,7 +147,7 @@ async function createWindow() {
     minWidth: 900,
     minHeight: 600,
     title: "Sentinel HQ",
-    backgroundColor: "#09090b",
+    backgroundColor: "#040b08",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

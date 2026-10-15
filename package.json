@@ -1,7 +1,7 @@
 {
   "name": "sentinel-hq",
-  "productName": "Sentinel HQ",
-  "version": "1.4.0",
+  "productName": "SentinelHQ",
+  "version": "1.4.1",
   "private": true,
   "description": "Sentinel HQ — escritorio del CEO",
   "author": "Sentinel",
@@ -55,7 +55,8 @@
   },
   "build": {
     "appId": "com.sentinel.hq",
-    "productName": "Sentinel HQ",
+    "productName": "SentinelHQ",
+    "executableName": "sentinel-hq",
     "copyright": "Copyright © Sentinel",
     "directories": {
       "output": "release"
@@ -89,16 +90,18 @@
           "arch": ["x64"]
         }
       ],
+      "executableName": "sentinel-hq",
       "category": "Office",
       "maintainer": "Sentinel <sentinel@local>",
       "vendor": "Sentinel",
       "synopsis": "Sentinel HQ — escritorio del CEO",
       "description": "Escritorio del CEO con persistencia Supabase/Postgres.",
-      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "artifactName": "${name}-${version}-${arch}.${ext}",
       "desktop": {
         "Name": "Sentinel HQ",
         "Comment": "Escritorio del CEO",
-        "Categories": "Office;Finance;"
+        "Categories": "Office;Finance;",
+        "StartupWMClass": "sentinel-hq"
       }
     },
     "nsis": {
