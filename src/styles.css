@@ -91,6 +91,7 @@
     color: #111 !important;
   }
 
+  /* Oculta la app en pantalla; solo el reporte */
   body * {
     visibility: hidden;
   }
@@ -201,7 +202,8 @@
   }
 }
 
-/* Deep Work Lock — atenúa secciones no-críticas */
+
+/* Deep Work Lock — solo P0 + OS visibles en espíritu */
 body.deep-work-lock [data-hide-in-deep-work="true"] {
   opacity: 0.28;
   pointer-events: none;
