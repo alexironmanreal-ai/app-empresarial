@@ -8,11 +8,18 @@ import { Progress } from "./ui/progress";
 import { ChartShell, CompareArea } from "./chart-block";
 import { Mark } from "./mark";
 import { cn } from "@/lib/utils";
+import { ALGORITHM_STEPS } from "@/lib/physics";
+import { Button } from "./ui/button";
 
 export function TaskPanel({ task }: { task: Task }) {
   const done = useHq((s) => s.done);
   const toggle = useHq((s) => s.toggle);
+  const algorithmDone = useHq((s) => s.algorithmDone);
+  const toggleAlgorithmStep = useHq((s) => s.toggleAlgorithmStep);
+  const killTask = useHq((s) => s.killTask);
+  const killedTaskIds = useHq((s) => s.killedTaskIds);
   const [open, setOpen] = useState(false);
+  const killed = killedTaskIds.includes(task.id);
   const complete = isTaskComplete(
     task.id,
     task.subtasks.map((s) => s.id),
@@ -29,6 +36,7 @@ export function TaskPanel({ task }: { task: Task }) {
       className={cn(
         "relative z-10 rounded-xl bg-surface shadow-[var(--shadow-border)] transition-[box-shadow] duration-150",
         complete && "opacity-70",
+        killed && "opacity-40 grayscale",
       )}
     >
       <div className="flex items-start gap-1 p-3 sm:p-4">
@@ -91,6 +99,48 @@ export function TaskPanel({ task }: { task: Task }) {
               value={`${task.impact}/10`}
               hint={PRIORITY_LABEL[task.priority]}
             />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+                Algoritmo (5 pasos)
+              </p>
+              {!complete && task.priority !== "p0" ? (
+                <Button size="sm" variant="ghost" onClick={() => killTask(task.id)}>
+                  Kill tarea
+                </Button>
+              ) : null}
+            </div>
+            <ol className="mt-2 space-y-2">
+              {ALGORITHM_STEPS.map((step) => {
+                const key = `${task.id}:${step.id}`;
+                const checked = !!algorithmDone[key];
+                return (
+                  <li key={step.id} className="flex gap-3 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => toggleAlgorithmStep(task.id, step.id)}
+                      className={cn(
+                        "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded border font-mono text-[10px]",
+                        checked
+                          ? "border-accent bg-accent text-accent-fg"
+                          : "border-border text-subtle",
+                      )}
+                      aria-label={step.title}
+                    >
+                      {checked ? "✓" : step.n}
+                    </button>
+                    <div>
+                      <p className={cn("text-fg", checked && "text-muted line-through")}>
+                        {step.title}
+                      </p>
+                      <p className="text-xs text-muted">{step.detail}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
           </div>
 
           <div>
