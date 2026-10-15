@@ -2,7 +2,9 @@
 
 Escritorio del CEO: empresa, finanzas, YouTube, pipeline, OS y cadencia.
 
-**v1.2** — Persistencia en la nube con **Supabase (Postgres)** + caché local.
+**v1.3** — Persistencia en la nube con **Supabase (Postgres)** + caché local.
+
+**Nueva sección Tiempo**: tabla y gráficos de horas/años restantes para YouTube monetizable, OS, programación, inglés, empresa, LinkedIn, inversores, ventas y más. Se actualiza con el progreso de tareas y stats de YT.
 
 ## Persistencia en la nube (Supabase / Postgres) — recomendado
 
