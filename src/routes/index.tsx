@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { printDashboard } from "@/components/print-report";
 import { cn } from "@/lib/utils";
+import { HqElonBlock } from "@/components/hq-elon";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -140,6 +141,8 @@ function Home() {
           </div>
         </div>
       </header>
+
+      <HqElonBlock />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
