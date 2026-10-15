@@ -8,6 +8,8 @@ import type { GhCommit, GhRepoSummary } from "./github";
 import { createUserScopedStorage, getCurrentUserId, getSession, migrateUserHqStorage } from "./accounts";
 import { loadHqFromCloud, saveHqToCloud } from "./cloud-sync";
 import { isSupabaseConfigured } from "./supabase";
+import type { Contract } from "./contracts";
+import { DEFAULT_CONTRACTS } from "./contracts";
 
 export type Currency = "USD" | "ARS";
 export type Scenario = "conservative" | "base" | "optimistic";
@@ -88,6 +90,10 @@ type HqState = {
   ghToken: string;
   ghSummary: GhRepoSummary | null;
   ghCommits: GhCommit[];
+  deepWork: boolean;
+  contracts: Contract[];
+  killedTaskIds: string[];
+  algorithmDone: Record<string, boolean>;
   toggle: (id: string) => void;
   setDone: (id: string, value: boolean) => void;
   setProfile: (p: Partial<Profile>) => void;
@@ -115,6 +121,11 @@ type HqState = {
   setGhRepoInput: (v: string) => void;
   setGhToken: (v: string) => void;
   setGhData: (summary: GhRepoSummary | null, commits: GhCommit[]) => void;
+  setDeepWork: (v: boolean) => void;
+  toggleContract: (id: string) => void;
+  killTask: (id: string) => void;
+  reviveTask: (id: string) => void;
+  toggleAlgorithmStep: (taskId: string, stepId: string) => void;
   reset: () => void;
 };
 
@@ -157,6 +168,10 @@ const initialState = {
   ghToken: "",
   ghSummary: null as GhRepoSummary | null,
   ghCommits: [] as GhCommit[],
+  deepWork: false,
+  contracts: DEFAULT_CONTRACTS,
+  killedTaskIds: [] as string[],
+  algorithmDone: {} as Record<string, boolean>,
 };
 
 export const useHq = create<HqState>()(
@@ -271,11 +286,38 @@ export const useHq = create<HqState>()(
       setGhRepoInput: (ghRepoInput) => set({ ghRepoInput }),
       setGhToken: (ghToken) => set({ ghToken }),
       setGhData: (ghSummary, ghCommits) => set({ ghSummary, ghCommits }),
+      setDeepWork: (deepWork) => set({ deepWork }),
+      toggleContract: (id) =>
+        set((s) => ({
+          contracts: s.contracts.map((c) =>
+            c.id === id ? { ...c, active: !c.active } : c,
+          ),
+        })),
+      killTask: (id) =>
+        set((s) => ({
+          killedTaskIds: s.killedTaskIds.includes(id)
+            ? s.killedTaskIds
+            : [...s.killedTaskIds, id],
+        })),
+      reviveTask: (id) =>
+        set((s) => ({
+          killedTaskIds: s.killedTaskIds.filter((x) => x !== id),
+        })),
+      toggleAlgorithmStep: (taskId, stepId) =>
+        set((s) => {
+          const key = `${taskId}:${stepId}`;
+          return {
+            algorithmDone: {
+              ...s.algorithmDone,
+              [key]: !s.algorithmDone[key],
+            },
+          };
+        }),
       reset: () => set({ ...initialState }),
     }),
     {
-      name: "axion-hq-v4",
-      storage: createJSONStorage(() => createUserScopedStorage("axion-hq-v4")),
+      name: "axion-hq-v5",
+      storage: createJSONStorage(() => createUserScopedStorage("axion-hq-v5")),
       skipHydration: true,
     },
   ),
@@ -306,6 +348,10 @@ const PERSIST_KEYS = [
   "ghToken",
   "ghSummary",
   "ghCommits",
+  "deepWork",
+  "contracts",
+  "killedTaskIds",
+  "algorithmDone",
 ] as const;
 
 export function pickHqSlice(state: Record<string, unknown>) {
