@@ -14,6 +14,7 @@ import {
   Settings2,
   Wallet,
   Youtube,
+  Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
@@ -49,10 +50,17 @@ export function Shell({
   const done = useHq((s) => s.done);
   const profile = useHq((s) => s.profile);
   const score = companyScore(done);
+  const deepWork = useHq((s) => s.deepWork);
+  const setDeepWork = useHq((s) => s.setDeepWork);
 
   useEffect(() => {
     void useHq.persist.rehydrate();
   }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("deep-work-lock", deepWork);
+    return () => document.body.classList.remove("deep-work-lock");
+  }, [deepWork]);
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
@@ -91,6 +99,16 @@ export function Shell({
           })}
         </nav>
         <div className="space-y-1.5 p-3">
+          <Button
+            variant={deepWork ? "default" : "secondary"}
+            size="sm"
+            className="w-full gap-2"
+            onClick={() => setDeepWork(!deepWork)}
+            title="Deep Work Lock: foco maker / P0"
+          >
+            <Zap className="size-3.5" />
+            {deepWork ? "Deep Work ON" : "Deep Work"}
+          </Button>
           <SettingsDialog session={session} />
           <LogoutButton />
         </div>
@@ -105,6 +123,14 @@ export function Shell({
           <p className="text-[11px] text-muted">{session.displayName}</p>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant={deepWork ? "default" : "ghost"}
+            onClick={() => setDeepWork(!deepWork)}
+            title="Deep Work"
+          >
+            <Zap className="size-3.5" />
+          </Button>
           <SettingsDialog session={session} />
           <LogoutButton compact />
         </div>
