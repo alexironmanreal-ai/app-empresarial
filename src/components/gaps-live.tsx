@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 export function GapsLive() {
   const done = useHq((s) => s.done);
-  const arsPerUsd = useHq((s) => s.arsPerUsd);
+  const arsPerUsd = useHq((s) => s.arsPerUsd) ?? 1400;
   const gaps = liveGaps(done, arsPerUsd);
 
   const openN = gaps.filter((g) => g.status !== "done").length;
@@ -18,7 +18,6 @@ export function GapsLive() {
       ? 0
       : Math.round(gaps.reduce((a, g) => a + g.pctDone, 0) / gaps.length);
 
-  // Gráfico en % (funciona también cuando costUsd = 0)
   const chart = gaps.map((g) => ({
     label: GAP_CHART_LABEL[g.id] ?? g.area.split(" ")[0] ?? g.area,
     done: g.pctDone,
@@ -32,7 +31,7 @@ export function GapsLive() {
           <h2 className="font-display text-2xl">Qué falta para ser empresa</h2>
           <p className="mt-1 max-w-2xl text-sm text-muted">
             Estado calculado desde tareas del tablero (no texto fijo). Costo en ARS
-            con cotización viva · {arsPerUsd.toLocaleString("es-AR")} ARS/USD.
+            con cotización viva · {(arsPerUsd ?? 1400).toLocaleString("es-AR")} ARS/USD.
           </p>
         </div>
         <div className="flex flex-wrap gap-3 font-mono text-[11px] text-subtle">
