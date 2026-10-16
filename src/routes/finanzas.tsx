@@ -44,7 +44,7 @@ function Finanzas() {
   const leads = useHq((s) => s.leads);
   const paidExpenseIds = useHq((s) => s.paidExpenseIds);
   const toggleExpensePaid = useHq((s) => s.toggleExpensePaid);
-  const arsPerUsd = useHq((s) => s.arsPerUsd);
+  const arsPerUsd = useHq((s) => s.arsPerUsd) ?? 1400;
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +101,7 @@ function Finanzas() {
         <h1 className="mt-1 font-display text-4xl sm:text-5xl">Finanzas</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
           Primero supervivencia (runway). Después proyecciones. 1 USD ={" "}
-          {arsPerUsd.toLocaleString("es-AR")} ARS (viva).
+          {(arsPerUsd ?? 1400).toLocaleString("es-AR")} ARS (viva).
         </p>
       </header>
 
@@ -123,7 +123,7 @@ function Finanzas() {
             <p className={cn("mt-2 font-display text-4xl tabular-nums", toneClass)}>
               {Number.isFinite(reality.runwayDays)
                 ? `${reality.runwayDays} días`
-                : "∞"}
+                : "\u221e"}
             </p>
             <p className="mt-1 text-sm text-muted">{runwayLabel(reality.runwayDays)}</p>
           </div>
