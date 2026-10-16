@@ -1,19 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { EXPENSES, INCOME, WEALTH, WEALTH_NOTES } from "@/lib/data";
-import { ARS_PER_USD } from "@/lib/format";
 import { fetchMercadoPagoBalance } from "@/lib/mercadopago";
-import { cajaTotalArs, useHq } from "@/lib/store";
+import { cajaTotalArs, companyScore, useHq } from "@/lib/store";
 import {
   computeReality,
   estimatedMonthlyBurnArs,
   runwayLabel,
 } from "@/lib/reality";
-import { companyScore } from "@/lib/store";
-import { ChartShell, WealthChart } from "@/components/chart-block";
+import { computeWealth } from "@/lib/wealth-engine";
+import { liveExpenseSummary, liveIncomeSummary } from "@/lib/money-live";
+import { WealthPanel } from "@/components/wealth-panel";
+import { FxBadge } from "@/components/fx-badge";
+import { AgeBanner } from "@/components/age-gate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { IncomeExpenseSections } from "@/components/income-expense-sections";
 
 export const Route = createFileRoute("/finanzas")({ component: Finanzas });
 
@@ -27,18 +29,7 @@ function ars(n: number) {
   return arsFmt.format(n);
 }
 
-function usdToArs(usd: number) {
-  return usd * ARS_PER_USD;
-}
-
-function gapLabel(gap: number) {
-  if (gap <= 0) return "Alcanzado / superado";
-  return ars(gap);
-}
-
 function Finanzas() {
-  const scenario = useHq((s) => s.scenario);
-  const setScenario = useHq((s) => s.setScenario);
   const mpToken = useHq((s) => s.mpToken);
   const mpBalance = useHq((s) => s.mpBalance);
   const caja = useHq((s) => s.caja);
@@ -50,6 +41,10 @@ function Finanzas() {
   const lastReviewAt = useHq((s) => s.lastReviewAt);
   const extraMonthlyBurnArs = useHq((s) => s.extraMonthlyBurnArs);
   const setExtraMonthlyBurnArs = useHq((s) => s.setExtraMonthlyBurnArs);
+  const leads = useHq((s) => s.leads);
+  const paidExpenseIds = useHq((s) => s.paidExpenseIds);
+  const toggleExpensePaid = useHq((s) => s.toggleExpensePaid);
+  const arsPerUsd = useHq((s) => s.arsPerUsd);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,22 +53,20 @@ function Finanzas() {
 
   const total = cajaTotalArs(caja);
   const score = companyScore(done);
-  const reality = computeReality(caja, done, lastReviewAt, score, extraMonthlyBurnArs);
-  const baseBurn = estimatedMonthlyBurnArs(0);
-
-  const wealthArs = WEALTH.map((w) => ({
-    year: w.year,
-    conservative: usdToArs(w.conservative),
-    base: usdToArs(w.base),
-    optimistic: usdToArs(w.optimistic),
-  }));
-
-  const gapRows = wealthArs.map((w) => ({
-    year: w.year,
-    target: w[scenario],
-    gap: Math.max(0, w[scenario] - total),
-    pct: w[scenario] > 0 ? Math.min(100, (total / w[scenario]) * 100) : 0,
-  }));
+  const reality = computeReality(
+    caja,
+    done,
+    lastReviewAt,
+    score,
+    extraMonthlyBurnArs,
+    undefined,
+    undefined,
+    arsPerUsd,
+  );
+  const baseBurn = estimatedMonthlyBurnArs(0, arsPerUsd);
+  const wealth = computeWealth({ caja, leads, done });
+  const income = liveIncomeSummary(leads, arsPerUsd);
+  const expenses = liveExpenseSummary(paidExpenseIds, arsPerUsd);
 
   const toneClass =
     reality.survivalTone === "danger"
@@ -108,11 +101,10 @@ function Finanzas() {
         <h1 className="mt-1 font-display text-4xl sm:text-5xl">Finanzas</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
           Primero supervivencia (runway). Después proyecciones. 1 USD ={" "}
-          {ARS_PER_USD.toLocaleString("es-AR")} ARS.
+          {arsPerUsd.toLocaleString("es-AR")} ARS (viva).
         </p>
       </header>
 
-      {/* RUNWAY — lo que importa */}
       <section
         className={cn(
           "rounded-xl border p-5 shadow-[var(--shadow-border)]",
@@ -164,26 +156,6 @@ function Finanzas() {
             generando caja recurrente.
           </p>
         )}
-
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <div>
-            <p className="mb-1 text-[11px] text-subtle">
-              Burn extra mensual (ARS) — comida, tools, etc.
-            </p>
-            <Input
-              className="h-9 w-40 font-mono"
-              type="number"
-              placeholder="0"
-              value={extraMonthlyBurnArs || ""}
-              onChange={(e) =>
-                setExtraMonthlyBurnArs(Number(e.target.value) || 0)
-              }
-            />
-          </div>
-          <p className="pb-2 font-mono text-[11px] text-subtle">
-            Base gastos data: {ars(baseBurn)} + extra
-          </p>
-        </div>
       </section>
 
       <section>
@@ -317,166 +289,20 @@ function Finanzas() {
         </div>
       </section>
 
-      <div className="flex flex-wrap gap-2">
-        {(["conservative", "base", "optimistic"] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setScenario(s)}
-            className={`rounded-md px-3 py-1.5 text-sm ${
-              scenario === s
-                ? "bg-accent text-accent-fg"
-                : "bg-elevated text-muted"
-            }`}
-          >
-            {s === "conservative"
-              ? "Conservador"
-              : s === "base"
-                ? "Base"
-                : "Optimista"}
-          </button>
-        ))}
-      </div>
+      <FxBadge />
+      <AgeBanner need="payments" />
+      <WealthPanel />
 
-      <ChartShell title="Proyección empresa · ARS" height={300}>
-        <WealthChart data={wealthArs} />
-      </ChartShell>
-      <p className="text-sm text-muted">{WEALTH_NOTES[scenario]}</p>
-
-      <section>
-        <h2 className="font-display text-2xl">Cuánto falta · vs proyección</h2>
-        <p className="mt-1 text-sm text-muted">
-          Caja actual ({ars(total)}) contra el estimado del escenario{" "}
-          <span className="text-fg">
-            {scenario === "conservative"
-              ? "conservador"
-              : scenario === "base"
-                ? "base"
-                : "optimista"}
-          </span>
-          .
-        </p>
-        <div className="mt-4 overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
-          <table className="w-full min-w-[560px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-[11px] uppercase tracking-[0.14em] text-subtle">
-                <th className="px-4 py-3">Año</th>
-                <th className="px-4 py-3 text-right">Meta ARS</th>
-                <th className="px-4 py-3 text-right">Caja hoy</th>
-                <th className="px-4 py-3 text-right">Falta</th>
-                <th className="px-4 py-3 text-right">Avance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {gapRows.map((r) => (
-                <tr key={r.year} className="border-b border-border/60">
-                  <td className="px-4 py-3 font-medium">Año {r.year}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">
-                    {ars(r.target)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">
-                    {ars(total)}
-                  </td>
-                  <td
-                    className={`px-4 py-3 text-right font-mono tabular-nums ${
-                      r.gap <= 0 ? "text-ok" : "text-warn"
-                    }`}
-                  >
-                    {gapLabel(r.gap)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums text-muted">
-                    {r.pct.toFixed(1)}%
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="font-display text-2xl">Proyección por año · ARS</h2>
-        <div className="mt-4 overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
-          <table className="w-full min-w-[520px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-[11px] uppercase tracking-[0.14em] text-subtle">
-                <th className="px-4 py-3">Año</th>
-                <th className="px-4 py-3 text-right">Conservador</th>
-                <th className="px-4 py-3 text-right">Base</th>
-                <th className="px-4 py-3 text-right">Optimista</th>
-              </tr>
-            </thead>
-            <tbody>
-              {wealthArs.map((w) => (
-                <tr key={w.year} className="border-b border-border/60">
-                  <td className="px-4 py-3 font-medium">Año {w.year}</td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">
-                    {ars(w.conservative)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">
-                    {ars(w.base)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">
-                    {ars(w.optimistic)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="font-display text-2xl">Streams de ingreso · ARS</h2>
-        <div className="mt-4 space-y-3">
-          {INCOME.map((i) => (
-            <div
-              key={i.id}
-              className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]"
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="font-display text-xl">{i.name}</p>
-                <p className="font-mono text-[12px] text-subtle">{i.when}</p>
-              </div>
-              <p className="mt-1 text-sm text-muted">
-                {i.price} · {i.notes}
-              </p>
-              <p className="mt-2 font-mono text-sm">
-                Y1 {ars(usdToArs(i.y1))} · Y5 {ars(usdToArs(i.y5))} · Y10{" "}
-                {ars(usdToArs(i.y10))}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <h2 className="font-display text-2xl">Gastos · ARS</h2>
-        <div className="mt-4 overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
-          <table className="w-full min-w-[480px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-[11px] uppercase tracking-[0.14em] text-subtle">
-                <th className="px-4 py-3">Concepto</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3 text-right">ARS</th>
-                <th className="px-4 py-3">Para</th>
-              </tr>
-            </thead>
-            <tbody>
-              {EXPENSES.map((e) => (
-                <tr key={e.id} className="border-b border-border/60">
-                  <td className="px-4 py-3">{e.name}</td>
-                  <td className="px-4 py-3 text-muted">{e.kind}</td>
-                  <td className="px-4 py-3 text-right font-mono">
-                    {ars(usdToArs(e.usd))}
-                  </td>
-                  <td className="px-4 py-3 text-muted">{e.neededFor}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      <IncomeExpenseSections
+        income={income}
+        expenses={expenses}
+        wealthProgress={wealth.progress}
+        extraMonthlyBurnArs={extraMonthlyBurnArs}
+        setExtraMonthlyBurnArs={setExtraMonthlyBurnArs}
+        baseBurn={baseBurn}
+        realityMonthlyBurnArs={reality.monthlyBurnArs}
+        toggleExpensePaid={toggleExpensePaid}
+      />
     </div>
   );
 }
