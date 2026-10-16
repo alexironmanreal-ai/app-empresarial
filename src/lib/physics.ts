@@ -4,10 +4,19 @@
  */
 import { TASKS } from "./data";
 import type { Task } from "./types";
-import { isTaskComplete } from "./store";
 import { activitiesForWeekday, dateKey, dayProgress } from "./tracker";
 import type { DaySnapshot } from "./store";
 import type { GhCommit } from "./github";
+
+function isTaskComplete(
+  taskId: string,
+  subtaskIds: string[],
+  done: Record<string, boolean>,
+): boolean {
+  if (done[taskId]) return true;
+  if (subtaskIds.length === 0) return false;
+  return subtaskIds.every((id) => !!done[id]);
+}
 
 export const ALGORITHM_STEPS = [
   {
@@ -20,45 +29,36 @@ export const ALGORITHM_STEPS = [
     id: "delete",
     n: 2,
     title: "¿Se puede borrar?",
-    detail: "Si nadie lo nota en 30 días, no existe. Kill.",
+    detail: "Si no es necesario para el resultado, elimínalo. No optimices basura.",
   },
   {
     id: "simplify",
     n: 3,
     title: "¿Se puede simplificar?",
-    detail: "Mitad de pasos, mitad de tools, un solo entregable.",
+    detail: "Menos pasos, menos tools, menos gente en el loop.",
   },
   {
     id: "accelerate",
     n: 4,
     title: "¿Se puede acelerar?",
-    detail: "¿Qué bloquea el camino crítico? Cortalo esta semana.",
+    detail: "Ciclo más corto: demo, feedback, iteración.",
   },
   {
     id: "automate",
     n: 5,
     title: "¿Se puede automatizar?",
-    detail: "Solo después de borrar y simplificar. No automatices basura.",
+    detail: "Solo después de borrar y simplificar. Automatizar desperdicio multiplica desperdicio.",
   },
 ] as const;
 
-/** Horas maker estimadas hoy desde el tracker (actividades con hours) */
 export function makerHoursToday(
   dayLog: Record<string, Record<string, boolean>>,
   now = new Date(),
-): { planned: number; done: number; pct: number } {
+): number {
   const key = dateKey(now);
-  const acts = activitiesForWeekday(now.getDay());
-  const log = dayLog[key] ?? {};
-  let planned = 0;
-  let done = 0;
-  for (const a of acts) {
-    const h = a.hours ?? 0;
-    planned += h;
-    if (log[a.id]) done += h;
-  }
-  const pct = planned > 0 ? done / planned : dayProgress(key, dayLog);
-  return { planned, done, pct };
+  const progress = dayProgress(key, dayLog);
+  // ~6h maker si el día está completo
+  return Math.round(progress * 6 * 10) / 10;
 }
 
 export function p0OpenCount(done: Record<string, boolean>): number {
@@ -70,26 +70,21 @@ export function p0OpenCount(done: Record<string, boolean>): number {
 }
 
 export function runwayMonths(runwayDays: number): number {
-  if (!Number.isFinite(runwayDays)) return Infinity;
+  if (!Number.isFinite(runwayDays) || runwayDays <= 0) return 0;
   return Math.round((runwayDays / 30) * 10) / 10;
 }
 
-/** Tareas abiertas sin touch reciente → candidatas a kill */
 export function killCandidates(
   done: Record<string, boolean>,
-  killedIds: string[],
-  staleDays = 30,
+  killedTaskIds: string[],
 ): Task[] {
-  const killed = new Set(killedIds);
+  const killed = new Set(killedTaskIds);
   return TASKS.filter((t) => {
     if (killed.has(t.id)) return false;
-    if (isTaskComplete(t.id, t.subtasks.map((s) => s.id), done)) return false;
-    // P0 no se mata por stale automático
     if (t.priority === "p0") return false;
-    // Heurística: P3 siempre candidato; P2 si days altos
-    if (t.priority === "p3") return true;
-    if (t.priority === "p2" && t.days >= 60) return true;
-    return t.impact <= 5 && t.days >= 30;
+    if (isTaskComplete(t.id, t.subtasks.map((s) => s.id), done)) return false;
+    // candidatos: p2/p3 o impacto bajo
+    return t.priority === "p2" || t.priority === "p3" || t.impact <= 5;
   }).slice(0, 12);
 }
 
@@ -97,39 +92,37 @@ export function commitsThisWeek(commits: GhCommit[], now = new Date()): number {
   const weekAgo = now.getTime() - 7 * 86_400_000;
   return commits.filter((c) => {
     const t = new Date(c.date).getTime();
-    return t >= weekAgo;
+    return Number.isFinite(t) && t >= weekAgo;
   }).length;
 }
 
 export type FisicaDelDia = {
-  makerHoursDone: number;
-  makerHoursPlanned: number;
-  makerPct: number;
-  cajaArs: number;
-  runwayDays: number;
+  makerHours: number;
   p0Open: number;
-  dayProgressPct: number;
+  runwayDays: number;
+  runwayMonths: number;
   commitsWeek: number;
+  dayProgress: number;
+  weekdayLabel: string;
 };
 
 export function computeFisica(args: {
   dayLog: Record<string, Record<string, boolean>>;
-  totalCajaArs: number;
-  runwayDays: number;
   done: Record<string, boolean>;
-  ghCommits: GhCommit[];
-  daySnapshots: Record<string, DaySnapshot>;
+  runwayDays: number;
+  commits: GhCommit[];
+  now?: Date;
 }): FisicaDelDia {
-  const maker = makerHoursToday(args.dayLog);
-  const key = dateKey(new Date());
+  const now = args.now ?? new Date();
+  const wd = now.getDay();
+  const labels = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   return {
-    makerHoursDone: maker.done,
-    makerHoursPlanned: maker.planned,
-    makerPct: maker.pct,
-    cajaArs: args.totalCajaArs,
-    runwayDays: args.runwayDays,
+    makerHours: makerHoursToday(args.dayLog, now),
     p0Open: p0OpenCount(args.done),
-    dayProgressPct: dayProgress(key, args.dayLog),
-    commitsWeek: commitsThisWeek(args.ghCommits),
+    runwayDays: args.runwayDays,
+    runwayMonths: runwayMonths(args.runwayDays),
+    commitsWeek: commitsThisWeek(args.commits, now),
+    dayProgress: dayProgress(dateKey(now), args.dayLog),
+    weekdayLabel: labels[wd] ?? "",
   };
 }
