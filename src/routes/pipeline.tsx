@@ -5,6 +5,7 @@ import { ars } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { PipelineGate } from "@/components/pipeline-gate";
 
 export const Route = createFileRoute("/pipeline")({ component: PipelinePage });
 
@@ -43,6 +44,7 @@ function PipelinePage() {
   }
 
   return (
+    <PipelineGate>
     <div className="space-y-8">
       <header>
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-subtle">
@@ -136,5 +138,6 @@ function PipelinePage() {
         })}
       </div>
     </div>
+    </PipelineGate>
   );
 }
