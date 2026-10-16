@@ -4,162 +4,22 @@ import { OS_MODULES } from "@/lib/data";
 import { ChartShell, CompareArea } from "@/components/chart-block";
 import { useHq } from "@/lib/store";
 import { fetchRecentCommits, fetchRepoSummary, type GhCommit } from "@/lib/github";
+import {
+  computeOsBattery,
+  OS_PHASE_COUNT,
+  type OsPhaseView,
+} from "@/lib/os-phases";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/os")({ component: Os });
 
-/** Roadmap de fases: el estado se infiere de los mensajes de commit (no hardcode de “hecho”). */
-const PHASE_DEFS = [
-  {
-    phase: "0",
-    name: "Spec + tooling",
-    months: "0–1",
-    keywords: [
-      "spec",
-      "tooling",
-      "makefile",
-      "ci",
-      "toolchain",
-      "build",
-      "init",
-    ],
-  },
-  {
-    phase: "1",
-    name: "Bootable kernel",
-    months: "1–4",
-    keywords: [
-      "kernel",
-      "boot",
-      "qemu",
-      "paging",
-      "page fault",
-      "syscall",
-      "v1.0",
-      "elf",
-      "vfs",
-      "main.c",
-    ],
-  },
-  {
-    phase: "2",
-    name: "Userspace mínimo",
-    months: "4–10",
-    keywords: [
-      "userspace",
-      "userland",
-      "shell",
-      "stdio",
-      "libc",
-      "v1.1",
-      "v1.2",
-      "sleep",
-      "wait",
-      "zombie",
-      "echo",
-      "cat",
-      "ls",
-      "brk",
-      "stdin",
-      "task.c",
-    ],
-  },
-  {
-    phase: "3",
-    name: "ISO + apps",
-    months: "10–18",
-    keywords: [
-      "iso",
-      "app",
-      "apps",
-      "multi-elf",
-      "v1.3",
-      "package",
-      "getdents",
-      "argv",
-      "exec args",
-    ],
-  },
-] as const;
-
-type PhaseStatus = "done" | "active" | "pending";
-
-type PhaseView = {
-  phase: string;
-  name: string;
-  months: string;
-  status: PhaseStatus;
-  hits: number;
-  evidence: string[];
-};
-
-function scorePhase(commits: GhCommit[], keywords: readonly string[]): {
-  hits: number;
-  evidence: string[];
-} {
-  const evidence: string[] = [];
-  let hits = 0;
-  for (const c of commits) {
-    const msg = (c.message ?? "").toLowerCase();
-    const matched = keywords.some((k) => msg.includes(k.toLowerCase()));
-    if (matched) {
-      hits += 1;
-      if (evidence.length < 3) evidence.push(c.message);
-    }
-  }
-  return { hits, evidence };
-}
-
-/**
- * Inferencia de progreso por fase a partir de commits.
- * Una fase se considera alcanzada si hay señales en commits;
- * la más alta con señales es “activa”; las anteriores “done”.
- */
-function computePhases(commits: GhCommit[]): PhaseView[] {
-  if (commits.length === 0) {
-    return PHASE_DEFS.map((p, i) => ({
-      phase: p.phase,
-      name: p.name,
-      months: p.months,
-      status: (i === 0 ? "active" : "pending") as PhaseStatus,
-      hits: 0,
-      evidence: [],
-    }));
-  }
-
-  const scored = PHASE_DEFS.map((p) => {
-    const { hits, evidence } = scorePhase(commits, p.keywords);
-    return { ...p, hits, evidence };
-  });
-
-  let highest = -1;
-  for (let i = 0; i < scored.length; i++) {
-    if (scored[i].hits > 0) highest = i;
-  }
-  if (highest < 0) highest = 0;
-
-  return scored.map((p, i) => {
-    let status: PhaseStatus = "pending";
-    if (i < highest) status = "done";
-    else if (i === highest) status = "active";
-    return {
-      phase: p.phase,
-      name: p.name,
-      months: p.months,
-      status,
-      hits: p.hits,
-      evidence: p.evidence,
-    };
-  });
-}
-
-/** Progreso 0–1 por módulo según keywords en commits */
-function moduleProgress(commits: GhCommit[], modId: string): number {
-  if (commits.length === 0) return 0;
+function moduleProgress(commits: GhCommit[] | null | undefined, modId: string): number {
+  const list = commits ?? [];
+  if (list.length === 0) return 0;
   const map: Record<string, string[]> = {
-    boot: ["boot", "kernel", "qemu", "v1.0", "elf", "main.c"],
+    boot: ["boot", "kernel", "qemu", "v1.0", "elf", "main.c", "gdt", "idt"],
     mm: [
       "paging",
       "page fault",
@@ -169,8 +29,10 @@ function moduleProgress(commits: GhCommit[], modId: string): number {
       "sleep",
       "wait",
       "zombie",
+      "kmalloc",
+      "pmm",
     ],
-    fs: ["vfs", "fs", "filesystem", "stdio", "write-fd", "getdents", "multi-elf"],
+    fs: ["vfs", "fs", "filesystem", "stdio", "write-fd", "getdents", "multi-elf", "ext2"],
     shell: [
       "shell",
       "userspace",
@@ -186,11 +48,60 @@ function moduleProgress(commits: GhCommit[], modId: string): number {
   const keys = map[modId] ?? [];
   if (keys.length === 0) return 0;
   let hits = 0;
-  for (const c of commits) {
+  for (const c of list) {
     const msg = (c.message ?? "").toLowerCase();
     if (keys.some((k) => msg.includes(k))) hits += 1;
   }
   return Math.min(1, hits / 4);
+}
+
+function BatteryGauge({ pct, large }: { pct: number; large?: boolean }) {
+  const clamped = Math.max(0, Math.min(100, pct));
+  const tone =
+    clamped >= 80 ? "bg-ok" : clamped >= 40 ? "bg-accent" : clamped > 0 ? "bg-warn" : "bg-elevated";
+  const border =
+    clamped >= 80 ? "border-ok/50" : clamped >= 40 ? "border-accent/40" : "border-border";
+
+  return (
+    <div className={cn("flex items-center gap-2", large && "gap-3")}>
+      <div
+        className={cn(
+          "relative flex items-center rounded-md border-2 bg-elevated/40",
+          border,
+          large ? "h-14 w-40 p-1" : "h-8 w-24 p-0.5",
+        )}
+        title={`${clamped}%`}
+      >
+        <div
+          className={cn("h-full rounded-sm transition-all duration-500", tone)}
+          style={{ width: `${clamped}%` }}
+        />
+        <span
+          className={cn(
+            "pointer-events-none absolute inset-0 flex items-center justify-center font-mono font-medium tabular-nums",
+            large ? "text-sm" : "text-[10px]",
+            clamped > 45 ? "text-bg" : "text-fg",
+          )}
+        >
+          {clamped.toFixed(clamped % 1 ? 1 : 0)}%
+        </span>
+      </div>
+      <div className={cn("rounded-r-sm bg-subtle/40", large ? "h-6 w-1.5" : "h-3 w-1")} />
+    </div>
+  );
+}
+
+function statusLabel(s: OsPhaseView["status"]) {
+  switch (s) {
+    case "done":
+      return "Cargada";
+    case "active":
+      return "Activa";
+    case "partial":
+      return "Parcial";
+    default:
+      return "Pendiente";
+  }
 }
 
 function Os() {
@@ -198,18 +109,24 @@ function Os() {
   const ghRepoInput = useHq((s) => s.ghRepoInput);
   const ghToken = useHq((s) => s.ghToken);
   const ghSummary = useHq((s) => s.ghSummary);
-  const ghCommits = useHq((s) => s.ghCommits);
+  const ghCommits = useHq((s) => s.ghCommits) ?? [];
   const setGhRepoInput = useHq((s) => s.setGhRepoInput);
   const setGhToken = useHq((s) => s.setGhToken);
   const setGhData = useHq((s) => s.setGhData);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stageFilter, setStageFilter] = useState<string>("all");
+  const [onlyOpen, setOnlyOpen] = useState(false);
 
-  const phases = useMemo(() => computePhases(ghCommits), [ghCommits]);
+  const battery = useMemo(() => computeOsBattery(ghCommits), [ghCommits]);
 
-  const doneCount = phases.filter((p) => p.status === "done").length;
-  const activePhase = phases.find((p) => p.status === "active");
+  const filtered = useMemo(() => {
+    let rows = battery.phases;
+    if (stageFilter !== "all") rows = rows.filter((p) => p.stage === stageFilter);
+    if (onlyOpen) rows = rows.filter((p) => p.status !== "done");
+    return rows;
+  }, [battery.phases, stageFilter, onlyOpen]);
 
   async function syncGh() {
     if (!ghRepoInput.trim()) {
@@ -219,8 +136,8 @@ function Os() {
     setLoading(true);
     setError(null);
     try {
-      const summary = await fetchRepoSummary(ghRepoInput, ghToken);
-      const commits = await fetchRecentCommits(ghRepoInput, ghToken, 30);
+      const summary = await fetchRepoSummary(ghRepoInput.trim(), ghToken || undefined);
+      const commits = await fetchRecentCommits(ghRepoInput.trim(), ghToken || undefined, 100);
       setGhData(summary, commits);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error GitHub");
@@ -232,19 +149,66 @@ function Os() {
   return (
     <div className="space-y-8">
       <header>
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-subtle">
-          Producto
-        </p>
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-subtle">Producto</p>
         <h1 className="mt-1 font-display text-4xl sm:text-5xl">{profile.os}</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
-          Roadmap + commits reales del repo. Las fases se actualizan según los
-          mensajes de commit (no están fijas).
+          Roadmap de <strong className="text-fg">{OS_PHASE_COUNT} fases</strong>. La batería se
+          carga con commits reales del repo (keywords por fase). No hay “hecho” fijo: si no hay
+          señal en git, la celda queda vacía.
         </p>
       </header>
+
+      <section className="rounded-xl border border-accent/20 bg-surface p-5 shadow-[var(--shadow-border)]">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+              Batería del OS
+            </p>
+            <p className="mt-1 font-display text-3xl tabular-nums">{battery.chargePct}%</p>
+            <p className="mt-1 text-sm text-muted">
+              {battery.doneCount} cargadas · {battery.partialCount} parciales ·{" "}
+              {OS_PHASE_COUNT - battery.doneCount - battery.partialCount} pendientes
+              {battery.active ? ` · foco: #${battery.active.n} ${battery.active.name}` : ""}
+            </p>
+          </div>
+          <BatteryGauge pct={battery.chargePct} large />
+        </div>
+
+        <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {battery.stages.map((st) => (
+            <button
+              key={st.stage}
+              type="button"
+              onClick={() => setStageFilter((prev) => (prev === st.stage ? "all" : st.stage))}
+              className={cn(
+                "rounded-lg border px-3 py-2 text-left transition-colors",
+                stageFilter === st.stage
+                  ? "border-accent bg-accent/10"
+                  : "border-border bg-elevated/40 hover:bg-elevated",
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-mono text-[10px] uppercase tracking-wider text-subtle">
+                  {st.stage}
+                </p>
+                <span className="font-mono text-[11px] tabular-nums text-muted">
+                  {st.done}/{st.total}
+                </span>
+              </div>
+              <div className="mt-2">
+                <BatteryGauge pct={st.chargePct} />
+              </div>
+            </button>
+          ))}
+        </div>
+      </section>
 
       <section className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
         <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
           GitHub · progreso real
+        </p>
+        <p className="mt-1 text-sm text-muted">
+          Sincronizá hasta 100 commits recientes. Cada mensaje que matchee keywords carga fases.
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           <div>
@@ -257,9 +221,7 @@ function Os() {
             />
           </div>
           <div>
-            <p className="mb-1 text-[11px] text-subtle">
-              Token (opcional · repos privados)
-            </p>
+            <p className="mb-1 text-[11px] text-subtle">Token (opcional · repos privados)</p>
             <Input
               className="font-mono text-xs"
               type="password"
@@ -270,7 +232,7 @@ function Os() {
           </div>
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button size="sm" onClick={syncGh} disabled={loading}>
+          <Button size="sm" onClick={() => void syncGh()} disabled={loading}>
             {loading ? "Sincronizando…" : "Sincronizar commits"}
           </Button>
           {ghSummary ? (
@@ -288,13 +250,12 @@ function Os() {
         {ghSummary ? (
           <p className="mt-2 font-mono text-[11px] text-subtle">
             ★ {ghSummary.stars} · issues {ghSummary.openIssues} · last push{" "}
-            {ghSummary.pushedAt
-              ? new Date(ghSummary.pushedAt).toLocaleString("es-AR")
-              : "—"}
+            {ghSummary.pushedAt ? new Date(ghSummary.pushedAt).toLocaleString("es-AR") : "—"}
+            {ghCommits.length > 0 ? ` · ${ghCommits.length} commits` : ""}
           </p>
         ) : null}
         {ghCommits.length > 0 ? (
-          <ul className="mt-4 space-y-2">
+          <ul className="mt-4 max-h-48 space-y-2 overflow-y-auto">
             {ghCommits.slice(0, 12).map((c) => (
               <li key={c.sha}>
                 <a
@@ -304,111 +265,114 @@ function Os() {
                   className="flex flex-wrap items-baseline justify-between gap-2 rounded-lg bg-elevated/50 px-3 py-2 text-sm hover:bg-elevated"
                 >
                   <span>
-                    <span className="font-mono text-[11px] text-accent">
-                      {c.sha}
-                    </span>{" "}
+                    <span className="font-mono text-[11px] text-accent">{c.sha}</span>{" "}
                     <span className="text-fg">{c.message}</span>
                   </span>
                   <span className="font-mono text-[10px] text-subtle">
-                    {c.author}
-                    {c.date
-                      ? ` · ${new Date(c.date).toLocaleDateString("es-AR")}`
-                      : ""}
+                    {c.date ? new Date(c.date).toLocaleDateString("es-AR") : ""}
                   </span>
                 </a>
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="mt-3 text-sm text-muted">
-            Conectá el repo del OS y sincronizá para ver commits y actualizar
-            fases. Repos públicos no necesitan token.
-          </p>
-        )}
+        ) : null}
       </section>
 
       <section>
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-display text-2xl">Fases</h2>
-          {ghCommits.length > 0 ? (
-            <p className="font-mono text-[11px] text-subtle">
-              Hechas: {doneCount} · actual:{" "}
-              {activePhase
-                ? `Fase ${activePhase.phase} · ${activePhase.name}`
-                : "—"}
-              {` · ${ghCommits.length} commits analizados`}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="font-display text-2xl">
+              Fases ({filtered.length}
+              {filtered.length !== OS_PHASE_COUNT ? ` / ${OS_PHASE_COUNT}` : ""})
+            </h2>
+            <p className="mt-1 text-sm text-muted">
+              Cada fila es una celda de la batería. Click en etapa arriba para filtrar.
             </p>
-          ) : (
-            <p className="text-sm text-muted">
-              Sincronizá commits para calcular el estado
-            </p>
-          )}
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {phases.map((p) => (
-            <div
-              key={p.phase}
-              className={cn(
-                "rounded-xl p-4 shadow-[var(--shadow-border)]",
-                p.status === "done" && "bg-elevated/80 ring-1 ring-accent/30",
-                p.status === "active" && "bg-surface ring-1 ring-accent",
-                p.status === "pending" && "bg-surface opacity-70",
-              )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={stageFilter === "all" ? "default" : "secondary"}
+              onClick={() => setStageFilter("all")}
             >
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-mono text-[11px] text-subtle">
-                  Fase {p.phase}
-                </p>
-                <span
+              Todas
+            </Button>
+            <Button
+              size="sm"
+              variant={onlyOpen ? "default" : "secondary"}
+              onClick={() => setOnlyOpen((v) => !v)}
+            >
+              {onlyOpen ? "Ver todas" : "Solo abiertas"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 max-h-[28rem] overflow-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="sticky top-0 z-10 bg-surface">
+              <tr className="border-b border-border text-[11px] uppercase tracking-[0.14em] text-subtle">
+                <th className="px-3 py-3 font-medium">#</th>
+                <th className="px-3 py-3 font-medium">Etapa</th>
+                <th className="px-3 py-3 font-medium">Fase</th>
+                <th className="px-3 py-3 font-medium">Estado</th>
+                <th className="px-3 py-3 font-medium">Carga</th>
+                <th className="px-3 py-3 font-medium">Señal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <tr
+                  key={p.n}
                   className={cn(
-                    "rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider",
-                    p.status === "done" && "bg-accent/20 text-accent",
-                    p.status === "active" && "bg-accent text-bg",
-                    p.status === "pending" && "bg-elevated text-subtle",
+                    "border-b border-border/50",
+                    p.status === "active" && "bg-accent/10",
+                    p.status === "done" && "opacity-80",
                   )}
                 >
-                  {p.status === "done"
-                    ? "Hecha"
-                    : p.status === "active"
-                      ? "En curso"
-                      : "Pendiente"}
-                </span>
-              </div>
-              <p className="mt-1 font-display text-xl">{p.name}</p>
-              <p className="mt-1 text-sm text-muted">{p.months}</p>
-              {p.hits > 0 ? (
-                <p className="mt-2 font-mono text-[10px] text-subtle">
-                  {p.hits} commit{p.hits === 1 ? "" : "s"} relacionados
-                </p>
-              ) : null}
-              {p.evidence.length > 0 ? (
-                <ul className="mt-2 space-y-0.5">
-                  {p.evidence.map((ev, i) => (
-                    <li
-                      key={i}
-                      className="truncate text-[11px] text-muted"
-                      title={ev}
+                  <td className="px-3 py-2 font-mono text-xs text-subtle">{p.n}</td>
+                  <td className="px-3 py-2 text-xs text-muted">{p.stage}</td>
+                  <td className="px-3 py-2 font-medium">{p.name}</td>
+                  <td className="px-3 py-2">
+                    <span
+                      className={cn(
+                        "font-mono text-[10px] uppercase tracking-wide",
+                        p.status === "done" && "text-ok",
+                        p.status === "active" && "text-accent",
+                        p.status === "partial" && "text-warn",
+                        p.status === "pending" && "text-subtle",
+                      )}
                     >
-                      · {ev}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-          ))}
+                      {statusLabel(p.status)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="h-2 w-20 overflow-hidden rounded-full bg-elevated">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          p.charge >= 1 ? "bg-ok" : p.charge > 0 ? "bg-accent" : "bg-transparent",
+                        )}
+                        style={{ width: `${Math.round(p.charge * 100)}%` }}
+                      />
+                    </div>
+                  </td>
+                  <td className="max-w-[12rem] truncate px-3 py-2 font-mono text-[10px] text-subtle">
+                    {p.hits > 0 ? `${p.hits}· ${p.evidence[0] ?? ""}` : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
       <section className="space-y-6">
-        <h2 className="font-display text-2xl">Módulos</h2>
+        <h2 className="font-display text-2xl">Módulos (capa gruesa)</h2>
         {OS_MODULES.map((mod) => {
           const prog = moduleProgress(ghCommits, mod.id);
           const pct = Math.round(prog * 100);
           return (
-            <div
-              key={mod.id}
-              className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]"
-            >
+            <div key={mod.id} className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="font-display text-xl">{mod.name}</p>
                 <p className="font-mono text-[12px] text-subtle">
@@ -429,11 +393,7 @@ function Os() {
               ) : null}
               <div className="mt-4">
                 <ChartShell height={160}>
-                  <CompareArea
-                    data={mod.chart}
-                    doneName="Progreso"
-                    skipName="Riesgo"
-                  />
+                  <CompareArea data={mod.chart} doneName="Progreso" skipName="Riesgo" />
                 </ChartShell>
               </div>
             </div>
