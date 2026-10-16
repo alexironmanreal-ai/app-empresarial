@@ -3,7 +3,7 @@
  * No proyecciones de 10 años. Supervivencia y verdad.
  */
 import { EXPENSES, TASKS } from "./data";
-import { ARS_PER_USD } from "./format";
+import { getCachedArsPerUsd } from "./fx";
 import type { CajaRow, DaySnapshot } from "./store";
 import { cajaTotalArs, isTaskComplete } from "./store";
 import { dateKey, dayProgress } from "./tracker";
@@ -21,14 +21,15 @@ export function calendarDaysSince(iso: string, now = new Date()): number {
 }
 
 /** Burn mensual estimado en ARS a partir de gastos recurrentes + buffer conservador */
-export function estimatedMonthlyBurnArs(extraMonthlyArs = 0): number {
+export function estimatedMonthlyBurnArs(extraMonthlyArs = 0, arsPerUsd?: number): number {
+  const rate = Number(arsPerUsd) > 0 ? Number(arsPerUsd) : getCachedArsPerUsd();
   let monthly = 0;
   for (const e of EXPENSES) {
-    const ars = e.usd * ARS_PER_USD;
+    const ars = e.usd * rate;
     if (e.kind === "month") monthly += ars;
     else if (e.kind === "year") monthly += ars / 12;
   }
-  const floor = 350_000; // ARS/mes
+  const floor = 350_000; // ARS/mes piso operativo
   return Math.max(monthly + extraMonthlyArs, floor);
 }
 
@@ -56,11 +57,8 @@ export type RealitySnapshot = {
   p0Open: number;
   p0Total: number;
   companyPct: number;
-  /** Días calendario desde la última review semanal (0 = hoy) */
   daysSinceReview: number | null;
-  /** Vencida si nunca o >7 días calendario */
   reviewOverdue: boolean;
-  /** Estado del registro diario de HOY */
   registroHoy: RegistroHoyStatus;
   registroHoyProgress: number;
   survivalTone: "ok" | "warn" | "danger";
@@ -74,9 +72,10 @@ export function computeReality(
   extraMonthlyBurnArs = 0,
   dayLog: Record<string, Record<string, boolean>> = {},
   daySnapshots: Record<string, DaySnapshot> = {},
+  arsPerUsd?: number,
 ): RealitySnapshot {
   const totalCajaArs = cajaTotalArs(caja);
-  const monthlyBurnArs = estimatedMonthlyBurnArs(extraMonthlyBurnArs);
+  const monthlyBurnArs = estimatedMonthlyBurnArs(extraMonthlyBurnArs, arsPerUsd);
   const days = runwayDays(totalCajaArs, monthlyBurnArs);
 
   const p0Tasks = TASKS.filter((t) => t.priority === "p0");
