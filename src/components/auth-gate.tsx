@@ -13,6 +13,7 @@ import { switchHqUser } from "@/lib/store";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { FaceGate } from "./face-gate";
 
 type Mode = "login" | "register";
 
@@ -240,5 +241,5 @@ export function AuthGate({
     );
   }
 
-  return <>{children(session)}</>;
+  return <FaceGate session={session}>{children(session)}</FaceGate>;
 }
