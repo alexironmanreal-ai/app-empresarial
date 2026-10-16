@@ -31,26 +31,16 @@ function isTaskComplete(
 export const FACTURACION_GOAL_ARS = 10_000_000;
 
 export type WealthSnapshot = {
-  /** Facturación cobrada (pipeline stage cobrado) */
   facturadoArs: number;
-  /** Caja operativa actual */
   cajaArs: number;
-  /** Pipeline abierto (no cobrado / no perdido) */
   pipelineArs: number;
-  /** Meta */
   goalArs: number;
-  /** 0–1 progreso a la meta de facturación */
   progress: number;
-  /** % que falta (0–100) */
   pctMissing: number;
-  /** ARS que faltan */
   missingArs: number;
-  /** Proyección simple a 12m si mantenés ritmo de cobro 30d */
   velocity30dArs: number;
   projected12mArs: number;
-  /** Mensaje de siguiente acción */
   nextAction: string;
-  /** Curva realista para charts: year → facturado estimado */
   curve: { year: number; actual: number; goal: number; reference: number }[];
 };
 
@@ -70,7 +60,6 @@ export function pipelineOpen(leads: WealthLead[]): number {
     .reduce((a, l) => a + (Number(l.amountArs) || 0), 0);
 }
 
-/** Cobros en los últimos N días (por updatedAt) */
 export function velocityCobradoArs(leads: WealthLead[], days = 30, now = new Date()): number {
   const cut = now.getTime() - days * 86_400_000;
   return leads
@@ -166,16 +155,28 @@ export function computeWealth(args: {
   };
 }
 
-/** Mapeo gap → tareas / categorías para estado real */
+/** Mapeo gap → tareas reales del tablero */
 const GAP_TASK_MAP: Record<string, { taskIds?: string[]; categories?: Task["category"][] }> = {
   "g-legal": { categories: ["legal"] },
   "g-tax": { categories: ["fiscal"] },
-  "g-bank": { taskIds: ["payments", "emergency"] },
-  "g-offer": { taskIds: ["outbound", "product-1"] },
+  "g-bank": { taskIds: ["bank", "payments", "emergency"] },
+  "g-offer": { categories: ["ingresos"] },
   "g-brand": { categories: ["marca"] },
   "g-yt": { categories: ["youtube"] },
   "g-os": { categories: ["os"] },
   "g-gov": { categories: ["ceo"] },
+};
+
+/** Etiquetas cortas para charts */
+export const GAP_CHART_LABEL: Record<string, string> = {
+  "g-legal": "Legal",
+  "g-tax": "Fiscal",
+  "g-bank": "Caja",
+  "g-offer": "Oferta",
+  "g-brand": "Marca",
+  "g-yt": "YT",
+  "g-os": "OS",
+  "g-gov": "CEO",
 };
 
 export type LiveGap = Gap & {
@@ -184,28 +185,45 @@ export type LiveGap = Gap & {
   costArs: number;
   paidArs: number;
   missingArs: number;
+  relatedCount: number;
+  relatedDone: number;
+};
+
+const STATUS_ORDER: Record<LiveGap["status"], number> = {
+  open: 0,
+  partial: 1,
+  done: 2,
 };
 
 export function liveGaps(done: Record<string, boolean>, arsPerUsd = getCachedArsPerUsd()): LiveGap[] {
-  return GAPS.map((g) => {
+  const rate = Number(arsPerUsd) > 0 ? Number(arsPerUsd) : getCachedArsPerUsd();
+  const doneMap = done ?? {};
+
+  const rows: LiveGap[] = GAPS.map((g) => {
     const map = GAP_TASK_MAP[g.id] ?? {};
-    let related = TASKS.filter((t) => {
+    const related = TASKS.filter((t) => {
       if (map.taskIds?.includes(t.id)) return true;
       if (map.categories?.includes(t.category)) return true;
       return false;
     });
-    if (related.length === 0) related = TASKS.filter((t) => t.category === "legal");
-    const complete = related.filter((t) =>
+    const relatedDone = related.filter((t) =>
       isTaskComplete(
         t.id,
         t.subtasks.map((s) => s.id),
-        done ?? {},
+        doneMap,
       ),
     ).length;
-    const pctDone = related.length ? Math.round((complete / related.length) * 100) : 0;
+    const relatedCount = related.length;
+    const pctDone = relatedCount ? Math.round((relatedDone / relatedCount) * 100) : 0;
     const status: LiveGap["status"] =
-      pctDone >= 100 ? "done" : pctDone > 0 ? "partial" : "open";
-    const costArs = Math.round(g.costUsd * arsPerUsd);
+      relatedCount === 0
+        ? "open"
+        : pctDone >= 100
+          ? "done"
+          : pctDone > 0
+            ? "partial"
+            : "open";
+    const costArs = Math.round((Number(g.costUsd) || 0) * rate);
     const paidArs = Math.round(costArs * (pctDone / 100));
     return {
       ...g,
@@ -214,8 +232,12 @@ export function liveGaps(done: Record<string, boolean>, arsPerUsd = getCachedArs
       costArs,
       paidArs,
       missingArs: Math.max(0, costArs - paidArs),
+      relatedCount,
+      relatedDone,
     };
   });
+
+  return rows.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.area.localeCompare(b.area));
 }
 
 export function taskChartFromProgress(task: Task, done: Record<string, boolean>) {
@@ -238,7 +260,6 @@ export function usdToArs(usd: number, rate = getCachedArsPerUsd()) {
   return usd * rate;
 }
 
-/** Edad a partir de fecha ISO YYYY-MM-DD */
 export function ageFromBirthDate(birthDate: string, now = new Date()): number | null {
   if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return null;
   const [y, m, d] = birthDate.split("-").map(Number);
