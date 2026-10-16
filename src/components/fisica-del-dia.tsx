@@ -12,7 +12,7 @@ export function FisicaDelDia() {
   const daySnapshots = useHq((s) => s.daySnapshots);
   const lastReviewAt = useHq((s) => s.lastReviewAt);
   const extra = useHq((s) => s.extraMonthlyBurnArs);
-  const ghCommits = useHq((s) => s.ghCommits);
+  const ghCommits = useHq((s) => s.ghCommits) ?? [];
   const score = companyScore(done);
   const reality = computeReality(
     caja,
@@ -39,60 +39,49 @@ export function FisicaDelDia() {
     f.makerPct >= 0.7 ? "text-ok" : f.makerPct >= 0.3 ? "text-warn" : "text-danger";
 
   return (
-    <section className="space-y-3">
+    <section className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-subtle">
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
             Física del día
           </p>
-          <h2 className="font-display text-2xl text-fg">Números que no mienten</h2>
+          <h2 className="font-display text-xl sm:text-2xl">Números que no mienten</h2>
         </div>
-        <Link
-          to="/tracker"
-          className="font-mono text-[11px] text-accent hover:underline"
-        >
-          Registrar horas →
+        <Link to="/tracker" className="font-mono text-[11px] text-accent hover:underline">
+          Tracker →
         </Link>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric
-          label="Maker hours"
-          value={`${f.makerHoursDone}h`}
-          hint={
-            f.makerHoursPlanned > 0
-              ? `de ${f.makerHoursPlanned}h planificadas · ${Math.round(f.makerPct * 100)}%`
-              : `${Math.round(f.dayProgressPct * 100)}% del día`
-          }
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat
+          label="Maker hoy"
+          value={`${f.makerHoursDone.toFixed(1)}h`}
+          hint={`de ${f.makerHoursPlanned.toFixed(1)}h planificadas`}
           tone={makerTone}
         />
-        <Metric
-          label="Caja"
-          value={ars(f.cajaArs)}
-          hint={
-            Number.isFinite(f.runwayDays)
-              ? `Runway ~${f.runwayDays} días`
-              : "Runway ∞"
-          }
+        <Stat
+          label="Runway"
+          value={Number.isFinite(f.runwayDays) ? `${Math.round(f.runwayDays)}d` : "∞"}
+          hint={ars(f.cajaArs) + " en caja"}
           tone={runwayTone}
         />
-        <Metric
-          label="P0 abiertos"
-          value={String(f.p0Open)}
-          hint={f.p0Open === 0 ? "Camino crítico limpio" : "No negociable"}
-          tone={p0Tone}
-        />
-        <Metric
-          label="Commits / 7d"
+        <Stat label="P0 abiertos" value={String(f.p0Open)} tone={p0Tone} />
+        <Stat
+          label="Commits 7d"
           value={String(f.commitsWeek)}
-          hint="OS real se mide en commits"
-          tone={f.commitsWeek > 0 ? "text-ok" : "text-warn"}
+          hint="GitHub sincronizado"
         />
       </div>
+
+      <p className="mt-3 text-xs text-muted">
+        Progreso del día (tracker): {Math.round(f.dayProgressPct * 100)}%. Score empresa:{" "}
+        {Math.round(score * 100)}%.
+      </p>
     </section>
   );
 }
 
-function Metric({
+function Stat({
   label,
   value,
   hint,
@@ -100,16 +89,14 @@ function Metric({
 }: {
   label: string;
   value: string;
-  hint: string;
-  tone: string;
+  hint?: string;
+  tone?: string;
 }) {
   return (
-    <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-      <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-subtle">
-        {label}
-      </p>
-      <p className={cn("mt-1 font-display text-3xl tabular-nums", tone)}>{value}</p>
-      <p className="mt-1 text-xs text-muted">{hint}</p>
+    <div className="rounded-lg bg-elevated/50 px-3 py-2">
+      <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-subtle">{label}</p>
+      <p className={cn("mt-0.5 font-display text-2xl tabular-nums", tone)}>{value}</p>
+      {hint ? <p className="text-[11px] text-muted">{hint}</p> : null}
     </div>
   );
 }
