@@ -16,6 +16,7 @@ import {
   Clock,
   Zap,
   FileText,
+  UserRound,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
@@ -40,6 +41,7 @@ const NAV = [
   { to: "/os", label: "OS", icon: Cpu },
   { to: "/ceo", label: "CEO", icon: Briefcase },
   { to: "/cv", label: "CV", icon: FileText },
+  { to: "/creador", label: "Creador", icon: UserRound },
 ];
 
 export function Shell({
