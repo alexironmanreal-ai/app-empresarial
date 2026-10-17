@@ -51,6 +51,7 @@ function PipelinePage() {
         <h1 className="mt-1 font-display text-4xl sm:text-5xl">Pipeline</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
           Contactado → call → propuesta → cobrado. Sin leads no hay primer trabajo.
+          Al marcar perdido pedimos el motivo (manual). Al cobrar, la razón se carga sola.
         </p>
         <p className="mt-2 font-mono text-[12px] text-subtle">
           En curso {ars(pipeline)} · Cobrado {ars(cobrado)} · {leads.length} leads
@@ -100,15 +101,37 @@ function PipelinePage() {
                   <p className="font-medium text-fg">{l.name}</p>
                   <p className="mt-0.5 text-xs text-muted">{l.offer}</p>
                   <p className="mt-1 font-mono text-[12px] text-subtle">
-                    {l.amountArs ? ars(l.amountArs) : "—"}
+                    {l.amountArs ? ars(l.amountArs) : "\u2014"}
                     {l.contact ? ` · ${l.contact}` : ""}
                   </p>
+                  {l.stage === "perdido" && l.lostReason ? (
+                    <p className="mt-1 text-[11px] text-danger">Motivo: {l.lostReason}</p>
+                  ) : null}
+                  {l.stage === "cobrado" && l.winReason ? (
+                    <p className="mt-1 text-[11px] text-ok">{l.winReason}</p>
+                  ) : null}
                   <div className="mt-2 flex flex-wrap gap-1">
                     {LEAD_STAGES.filter((s) => s.id !== l.stage).map((s) => (
                       <button
                         key={s.id}
                         type="button"
-                        onClick={() => updateLead(l.id, { stage: s.id as LeadStage })}
+                        onClick={() => {
+                          if (s.id === "perdido") {
+                            const reason = window.prompt(
+                              "Motivo de la pérdida (obligatorio para el gráfico mensual):",
+                              l.lostReason || "",
+                            );
+                            if (reason === null) return;
+                            const trimmed = reason.trim();
+                            if (!trimmed) {
+                              window.alert("Indicá un motivo para marcar como perdido.");
+                              return;
+                            }
+                            updateLead(l.id, { stage: "perdido", lostReason: trimmed });
+                            return;
+                          }
+                          updateLead(l.id, { stage: s.id as LeadStage });
+                        }}
                         className={cn(
                           "rounded px-1.5 py-0.5 text-[10px]",
                           s.id === "cobrado"
