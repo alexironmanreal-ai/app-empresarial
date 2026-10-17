@@ -1,6 +1,9 @@
+import { useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { FACTURACION_GOAL_ARS } from "@/lib/wealth-engine";
 import type { IncomeLiveSummary, ExpenseLiveSummary } from "@/lib/money-live";
+import { computeMonthlyIncome, type LeadLike } from "@/lib/monthly-income";
+import { ChartShell, StackedBars } from "@/components/chart-block";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +25,7 @@ export function IncomeExpenseSections(props: {
   baseBurn: number;
   realityMonthlyBurnArs: number;
   toggleExpensePaid: (id: string) => void;
+  leads?: LeadLike[] | null;
 }) {
   const {
     income,
@@ -32,7 +36,15 @@ export function IncomeExpenseSections(props: {
     baseBurn,
     realityMonthlyBurnArs,
     toggleExpensePaid,
+    leads,
   } = props;
+
+  const monthly = useMemo(() => computeMonthlyIncome(leads), [leads]);
+  const chartData = monthly.months.map((m) => ({
+    label: m.label,
+    cobrado: m.cobradoArs,
+    perdido: m.perdidoArs,
+  }));
 
   return (
     <>
@@ -45,7 +57,8 @@ export function IncomeExpenseSections(props: {
               <Link to="/pipeline" className="text-accent hover:underline">
                 leads
               </Link>
-              . Las referencias de lista son techos, no promesas.
+              . El gráfico se actualiza solo al marcar cobrado o perdido. El mes en curso
+              sigue abierto hasta que cierra el calendario.
             </p>
           </div>
           <div className="flex flex-wrap gap-4 font-mono text-[11px] text-subtle">
@@ -53,79 +66,126 @@ export function IncomeExpenseSections(props: {
               Cobrado <strong className="text-ok">{ars(income.cobradoArs)}</strong>
             </span>
             <span>
-              Pipeline{" "}
-              <strong className="text-warn">{ars(income.pipelineArs)}</strong>
+              Pipeline <strong className="text-accent">{ars(income.pipelineArs)}</strong>
             </span>
             <span>
-              Ritmo 30d{" "}
-              <strong className="text-fg">{ars(income.velocity30dArs)}</strong>
+              Ritmo 30d <strong className="text-fg">{ars(income.velocity30dArs)}</strong>
             </span>
             <span>
-              Meta <strong className="text-fg">{ars(FACTURACION_GOAL_ARS)}</strong> ·{" "}
-              {Math.round(wealthProgress * 100)}%
+              Meta {ars(FACTURACION_GOAL_ARS)} · {Math.round(wealthProgress * 100)}%
             </span>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {income.byOffer.length === 0 ? (
-            <p className="col-span-full rounded-xl bg-surface p-4 text-sm text-muted shadow-[var(--shadow-border)]">
-              Sin leads cobrados ni en curso. Cargá ofertas en Pipeline y pasá a cobrado
-              para ver ingresos reales.
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-ok/25 bg-ok/5 p-4">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-subtle">
+              Cobrado · 12 meses
             </p>
-          ) : (
-            income.byOffer.map((b) => (
-              <div
-                key={b.key}
-                className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]"
-              >
-                <p className="font-display text-lg">{b.key}</p>
-                <p className="mt-2 font-mono text-xl tabular-nums text-ok">
-                  {ars(b.cobradoArs)}
-                </p>
-                <p className="mt-1 font-mono text-[11px] text-subtle">
-                  Pipeline {ars(b.pipelineArs)} · {b.leadsCobrado} cobrado ·{" "}
-                  {b.leadsPipeline} abiertos
-                </p>
-              </div>
-            ))
-          )}
+            <p className="mt-1 font-display text-2xl tabular-nums text-ok">
+              {ars(monthly.totalCobrado12)}
+            </p>
+            <p className="mt-1 text-xs text-muted">Total ganado (pipeline)</p>
+          </div>
+          <div className="rounded-xl border border-danger/25 bg-danger/5 p-4">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-subtle">
+              Perdido · 12 meses
+            </p>
+            <p className="mt-1 font-display text-2xl tabular-nums text-danger">
+              {ars(monthly.totalPerdido12)}
+            </p>
+            <p className="mt-1 text-xs text-muted">Con motivo manual</p>
+          </div>
+          <div className="rounded-xl border border-accent/25 bg-accent/5 p-4">
+            <p className="font-mono text-[10px] uppercase tracking-wider text-subtle">
+              Mes actual{monthly.current?.open ? " · abierto" : ""}
+            </p>
+            <p className="mt-1 font-display text-2xl tabular-nums">
+              {ars(monthly.current?.cobradoArs ?? 0)}
+            </p>
+            <p className="mt-1 text-xs text-muted">
+              Perdido mes {ars(monthly.current?.perdidoArs ?? 0)}
+            </p>
+          </div>
         </div>
 
-        <h3 className="mt-8 font-display text-xl">Referencias de lista (techos)</h3>
-        <p className="mt-1 text-sm text-muted">
-          Si un lead matchea la oferta, se muestra cobrado/pipeline real al lado del techo Y1.
-        </p>
-        <div className="mt-3 space-y-3">
-          {income.streams.map((i) => (
-            <div
-              key={i.id}
-              className={cn(
-                "rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]",
-                i.active ? "ring-1 ring-accent/30" : "opacity-80",
-              )}
-            >
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="font-display text-lg">
-                  {i.name}
-                  {i.active ? (
-                    <span className="ml-2 font-mono text-[10px] uppercase text-accent">
-                      activo
-                    </span>
-                  ) : null}
-                </p>
-                <p className="font-mono text-[12px] text-subtle">{i.when}</p>
-              </div>
-              <p className="mt-1 text-sm text-muted">
-                {i.price} · {i.notes}
+        <div className="mt-4 rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+          <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-subtle">
+            Ingresos por mes · cobrado vs perdido
+          </p>
+          <div className="mt-3 h-56">
+            <ChartShell height={224}>
+              <StackedBars
+                data={chartData}
+                keys={[
+                  { key: "cobrado", name: "Cobrado", fill: "#2f8f6a" },
+                  { key: "perdido", name: "Perdido", fill: "#c45c5c" },
+                ]}
+              />
+            </ChartShell>
+          </div>
+        </div>
+
+        {monthly.current && monthly.current.deals.length > 0 ? (
+          <div className="mt-4 overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
+            <p className="border-b border-border px-4 py-2 font-mono text-[11px] uppercase tracking-wider text-subtle">
+              Detalle mes {monthly.current.label}
+              {monthly.current.open ? " (abierto — se actualiza al cerrar leads)" : ""}
+            </p>
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-border text-[11px] uppercase tracking-[0.12em] text-subtle">
+                  <th className="px-4 py-2">Lead</th>
+                  <th className="px-4 py-2">Estado</th>
+                  <th className="px-4 py-2">Monto</th>
+                  <th className="px-4 py-2">Razón</th>
+                </tr>
+              </thead>
+              <tbody>
+                {monthly.current.deals.map((d, i) => (
+                  <tr key={i} className="border-b border-border/50">
+                    <td className="px-4 py-2">
+                      <span className="font-medium">{d.name}</span>
+                      {d.offer ? (
+                        <span className="mt-0.5 block text-xs text-subtle">{d.offer}</span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={cn(
+                          "font-mono text-[10px] uppercase",
+                          d.stage === "cobrado" ? "text-ok" : "text-danger",
+                        )}
+                      >
+                        {d.stage}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 font-mono tabular-nums">{ars(d.amountArs)}</td>
+                    <td className="px-4 py-2 text-muted">{d.reason}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-muted">
+            Sin cobros ni pérdidas este mes. Mové leads en{" "}
+            <Link to="/pipeline" className="text-accent hover:underline">
+              Pipeline
+            </Link>
+            .
+          </p>
+        )}
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          {income.byOffer.map((b) => (
+            <div key={b.key} className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+              <p className="font-display text-lg">{b.key}</p>
+              <p className="mt-1 font-mono text-sm text-ok">{ars(b.cobradoArs)}</p>
+              <p className="mt-1 text-xs text-muted">
+                Pipeline {ars(b.pipelineArs)} · {b.leadsCobrado} cobrado · {b.leadsPipeline}{" "}
+                abiertos
               </p>
-              <div className="mt-2 flex flex-wrap gap-3 font-mono text-sm">
-                <span className="text-ok">Real {ars(i.earnedArs)}</span>
-                <span className="text-warn">Pipe {ars(i.pipelineArs)}</span>
-                <span className="text-subtle">
-                  Techo Y1 {ars(i.y1Ars)} · Y5 {ars(i.y5Ars)} · Y10 {ars(i.y10Ars)}
-                </span>
-              </div>
             </div>
           ))}
         </div>
@@ -217,7 +277,7 @@ export function IncomeExpenseSections(props: {
                     {ars(e.costArs)}
                   </td>
                   <td className="px-4 py-3 text-right font-mono tabular-nums text-subtle">
-                    {e.monthlyBurnArs > 0 ? ars(e.monthlyBurnArs) : "—"}
+                    {e.monthlyBurnArs > 0 ? ars(e.monthlyBurnArs) : "\u2014"}
                   </td>
                   <td className="px-4 py-3 text-muted">{e.neededFor}</td>
                 </tr>
