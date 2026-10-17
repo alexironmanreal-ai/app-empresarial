@@ -142,18 +142,15 @@ function Finanzas() {
 
         {reality.survivalTone === "danger" ? (
           <p className="mt-4 text-sm text-danger">
-            Menos de 30 días. Todo lo que no cierre caja o baje burn esta semana es
-            ruido. El OS y YouTube pueden esperar.
+            Menos de 30 días. Todo lo que no cierre caja o baje burn esta semana es ruido.
           </p>
         ) : reality.survivalTone === "warn" ? (
           <p className="mt-4 text-sm text-warn">
-            Por debajo de 90 días o con P0 críticos abiertos. Priorizá ingresos y
-            cierre de gaps legales/fiscales.
+            Por debajo de 90 días o con P0 críticos abiertos. Priorizá ingresos.
           </p>
         ) : (
           <p className="mt-4 text-sm text-muted">
-            Runway cómodo. No es excusa para no vender. Seguí cerrando P0 y
-            generando caja recurrente.
+            Runway cómodo. Segui cerrando P0 y generando caja recurrente.
           </p>
         )}
       </section>
@@ -180,17 +177,10 @@ function Finanzas() {
 
         {mpBalance ? (
           <p className="mt-2 font-mono text-[11px] text-subtle">
-            MP · disponible {ars(mpBalance.availableArs)} · total{" "}
-            {ars(mpBalance.totalArs)}
-            {mpBalance.unavailableArs > 0
-              ? ` · retenido ${ars(mpBalance.unavailableArs)}`
-              : ""}{" "}
-            · {new Date(mpBalance.fetchedAt).toLocaleString("es-AR")}
+            MP · disponible {ars(mpBalance.availableArs)} · total {ars(mpBalance.totalArs)}
           </p>
         ) : (
-          <p className="mt-2 text-sm text-muted">
-            Sin sync aún. Cargá saldos a mano o token en Ajustes.
-          </p>
+          <p className="mt-2 text-sm text-muted">Sin sync aún. Token en Ajustes.</p>
         )}
 
         <div className="mt-4 overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
@@ -219,17 +209,13 @@ function Finanzas() {
                         type="number"
                         value={row.ars || ""}
                         onChange={(e) =>
-                          setCajaRow(row.id, {
-                            ars: Number(e.target.value) || 0,
-                          })
+                          setCajaRow(row.id, { ars: Number(e.target.value) || 0 })
                         }
                       />
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {row.source === "manual" &&
-                    row.id !== "banco" &&
-                    row.id !== "efectivo" ? (
+                    {row.source === "manual" && row.id !== "banco" && row.id !== "efectivo" ? (
                       <button
                         type="button"
                         className="text-xs text-subtle hover:text-danger"
@@ -302,6 +288,7 @@ function Finanzas() {
         baseBurn={baseBurn}
         realityMonthlyBurnArs={reality.monthlyBurnArs}
         toggleExpensePaid={toggleExpensePaid}
+        leads={leads}
       />
     </div>
   );
