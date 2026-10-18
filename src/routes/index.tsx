@@ -26,6 +26,10 @@ import { cn } from "@/lib/utils";
 import { HqElonBlock } from "@/components/hq-elon";
 import { LiveClock } from "@/components/live-clock";
 import { LocalWeather } from "@/components/local-weather";
+import { SurvivalBanner } from "@/components/survival-banner";
+import { HqInbox } from "@/components/hq-inbox";
+import { HqTools } from "@/components/hq-tools";
+import { computeHqActions } from "@/lib/hq-actions";
 import { OfficeShortcuts, OfficeShortcutChips } from "@/components/office-shortcuts";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -39,6 +43,7 @@ function Home() {
   const markReview = useHq((s) => s.markReview);
   const dayLog = useHq((s) => s.dayLog);
   const daySnapshots = useHq((s) => s.daySnapshots);
+  const leads = useHq((s) => s.leads);
 
   const score = companyScore(done);
   const reality = computeReality(
@@ -65,6 +70,14 @@ function Home() {
     (a, t) => Math.max(a, t.days),
     0,
   );
+
+  const actions = computeHqActions({
+    runwayDays: reality.runwayDays,
+    reviewOverdue: reality.reviewOverdue,
+    registroHoy: reality.registroHoy,
+    leads,
+    done,
+  });
 
   const toneClass =
     reality.survivalTone === "danger"
@@ -94,12 +107,7 @@ function Home() {
             {memo.body}
           </p>
           <div className="mt-4 flex flex-wrap gap-2 no-print">
-            <Button
-              className="gap-2"
-              variant="secondary"
-              size="sm"
-              onClick={() => printDashboard()}
-            >
+            <Button className="gap-2" variant="secondary" size="sm" onClick={() => printDashboard()}>
               <Printer className="size-3.5" />
               Imprimir / fotocopiar dashboard
             </Button>
@@ -110,9 +118,7 @@ function Home() {
               onClick={() => markReview()}
             >
               <CheckCircle2 className="size-3.5" />
-              {reality.reviewOverdue
-                ? "Cerrar review semanal (vencida)"
-                : "Marcar review hecha"}
+              {reality.reviewOverdue ? "Cerrar review semanal (vencida)" : "Marcar review hecha"}
             </Button>
           </div>
         </div>
@@ -141,6 +147,15 @@ function Home() {
         </div>
       </header>
 
+      <SurvivalBanner
+        runwayDays={reality.runwayDays}
+        reviewOverdue={reality.reviewOverdue}
+        monthlyBurnArs={reality.monthlyBurnArs}
+        totalCajaArs={reality.totalCajaArs}
+      />
+
+      <HqInbox actions={actions} />
+
       <HqElonBlock />
 
       <FxBadge />
@@ -151,18 +166,14 @@ function Home() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-            Caja total
-          </p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Caja total</p>
           <p className="mt-2 font-display text-2xl tabular-nums sm:text-3xl">
             {ars(reality.totalCajaArs)}
           </p>
           <p className="mt-1 text-sm text-muted">Disponible ahora</p>
         </div>
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-            Runway
-          </p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Runway</p>
           <p className={cn("mt-2 font-display text-2xl tabular-nums sm:text-3xl", toneClass)}>
             {Number.isFinite(reality.runwayDays) ? `${reality.runwayDays}d` : "\u221e"}
           </p>
@@ -171,18 +182,12 @@ function Home() {
           </p>
         </div>
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-            P0 abiertos
-          </p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">P0 abiertos</p>
           <p className="mt-2 font-display text-2xl tabular-nums sm:text-3xl">{p0left}</p>
-          <p className="mt-1 text-sm text-muted">
-            Máx. {daysLabel(daysP0)} para cerrar el bloque
-          </p>
+          <p className="mt-1 text-sm text-muted">Máx. {daysLabel(daysP0)} para cerrar el bloque</p>
         </div>
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-            Review semanal
-          </p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Review semanal</p>
           <p
             className={cn(
               "mt-2 font-display text-2xl tabular-nums sm:text-3xl",
@@ -200,9 +205,7 @@ function Home() {
           </p>
         </div>
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-            Registro de hoy
-          </p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Registro de hoy</p>
           <p className={cn("mt-2 font-display text-2xl sm:text-3xl", registroTone)}>
             {registroHoyLabel(reality.registroHoy)}
           </p>
@@ -247,13 +250,13 @@ function Home() {
         <div className="lg:col-span-2 space-y-3">
           <h2 className="font-display text-2xl">Foco</h2>
           <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-              Hoy
-            </p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">Hoy</p>
             <p className="mt-2 font-display text-xl leading-snug">{memo.focus}</p>
           </div>
         </div>
       </section>
+
+      <HqTools />
 
       <GapsLive />
     </div>
