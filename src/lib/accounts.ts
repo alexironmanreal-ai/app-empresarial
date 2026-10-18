@@ -2,6 +2,8 @@
  * Auth + sesión.
  * - Con VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY → Supabase Auth (email) + datos en Postgres.
  * - Sin config → cuentas locales en este dispositivo (fallback).
+ *
+ * No borra ni altera filas de hq_state salvo deleteAccount explícito.
  */
 
 import { getSupabase, isSupabaseConfigured } from "./supabase";
@@ -117,6 +119,15 @@ function isEmail(s: string): boolean {
 
 function mapAuthError(message: string): string {
   const m = message.toLowerCase();
+  if (
+    m.includes("networkerror") ||
+    m.includes("failed to fetch") ||
+    m.includes("load failed") ||
+    m.includes("network request failed") ||
+    m.includes("fetch failed")
+  ) {
+    return "Sin conexión con el servidor de auth. Revisá internet o el proxy de Vite (/api/supabase).";
+  }
   if (m.includes("invalid login") || m.includes("invalid credentials")) {
     return "Email o contraseña incorrectos.";
   }
@@ -137,23 +148,33 @@ export async function restoreCloudSession(): Promise<Session | null> {
   const sb = getSupabase();
   if (!sb) return null;
 
-  const { data, error } = await sb.auth.getSession();
-  if (error || !data.session?.user) {
-    setSession(null);
-    return null;
+  try {
+    const { data, error } = await sb.auth.getSession();
+    if (error || !data.session?.user) {
+      // No borramos sesión local si solo falló la red; getSession suele ser local.
+      if (error && /network|fetch/i.test(error.message)) {
+        return getSession()?.mode === "cloud" ? getSession() : null;
+      }
+      setSession(null);
+      return null;
+    }
+    const user = data.session.user;
+    const session: Session = {
+      userId: user.id,
+      username: user.email ?? user.id,
+      displayName:
+        (user.user_metadata?.display_name as string | undefined) ||
+        user.email?.split("@")[0] ||
+        "Usuario",
+      mode: "cloud",
+    };
+    setSession(session);
+    return session;
+  } catch (e) {
+    console.warn("[auth] restoreCloudSession network", e);
+    // Offline: conservar sesión en caché si ya existía
+    return getSession()?.mode === "cloud" ? getSession() : null;
   }
-  const user = data.session.user;
-  const session: Session = {
-    userId: user.id,
-    username: user.email ?? user.id,
-    displayName:
-      (user.user_metadata?.display_name as string | undefined) ||
-      user.email?.split("@")[0] ||
-      "Usuario",
-    mode: "cloud",
-  };
-  setSession(session);
-  return session;
 }
 
 export async function registerAccount(
@@ -169,35 +190,42 @@ export async function registerAccount(
     if (password.length < 6) {
       return { ok: false, error: "Contraseña demasiado corta (mín. 6)." };
     }
-    const sb = getSupabase()!;
-    const name = (displayName || email.split("@")[0]).trim();
-    const { data, error } = await sb.auth.signUp({
-      email,
-      password,
-      options: { data: { display_name: name } },
-    });
-    if (error) return { ok: false, error: mapAuthError(error.message) };
-    if (!data.user) {
+    try {
+      const sb = getSupabase()!;
+      const name = (displayName || email.split("@")[0]).trim();
+      const { data, error } = await sb.auth.signUp({
+        email,
+        password,
+        options: { data: { display_name: name } },
+      });
+      if (error) return { ok: false, error: mapAuthError(error.message) };
+      if (!data.user) {
+        return {
+          ok: false,
+          error: "Cuenta creada. Si pide confirmación, revisá el email y luego entrá.",
+        };
+      }
+      if (!data.session) {
+        return {
+          ok: false,
+          error:
+            "Cuenta creada. Confirmá el email (o en Supabase: Auth → Providers → Email → desactivar “Confirm email”) y volvé a entrar.",
+        };
+      }
+      const session: Session = {
+        userId: data.user.id,
+        username: email,
+        displayName: name,
+        mode: "cloud",
+      };
+      setSession(session);
+      return { ok: true, session };
+    } catch (e) {
       return {
         ok: false,
-        error: "Cuenta creada. Si pide confirmación, revisá el email y luego entrá.",
+        error: mapAuthError(e instanceof Error ? e.message : String(e)),
       };
     }
-    if (!data.session) {
-      return {
-        ok: false,
-        error:
-          "Cuenta creada. Confirmá el email (o en Supabase: Auth → Providers → Email → desactivar “Confirm email”) y volvé a entrar.",
-      };
-    }
-    const session: Session = {
-      userId: data.user.id,
-      username: email,
-      displayName: name,
-      mode: "cloud",
-    };
-    setSession(session);
-    return { ok: true, session };
   }
 
   const u = username.trim().toLowerCase();
@@ -239,23 +267,30 @@ export async function loginAccount(
     if (!isEmail(email)) {
       return { ok: false, error: "Usá el email con el que te registraste." };
     }
-    const sb = getSupabase()!;
-    const { data, error } = await sb.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) return { ok: false, error: mapAuthError(error.message) };
-    if (!data.user) return { ok: false, error: "No se pudo iniciar sesión." };
-    const session: Session = {
-      userId: data.user.id,
-      username: email,
-      displayName:
-        (data.user.user_metadata?.display_name as string | undefined) ||
-        email.split("@")[0],
-      mode: "cloud",
-    };
-    setSession(session);
-    return { ok: true, session };
+    try {
+      const sb = getSupabase()!;
+      const { data, error } = await sb.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) return { ok: false, error: mapAuthError(error.message) };
+      if (!data.user) return { ok: false, error: "No se pudo iniciar sesión." };
+      const session: Session = {
+        userId: data.user.id,
+        username: email,
+        displayName:
+          (data.user.user_metadata?.display_name as string | undefined) ||
+          email.split("@")[0],
+        mode: "cloud",
+      };
+      setSession(session);
+      return { ok: true, session };
+    } catch (e) {
+      return {
+        ok: false,
+        error: mapAuthError(e instanceof Error ? e.message : String(e)),
+      };
+    }
   }
 
   const u = username.trim().toLowerCase();
@@ -282,7 +317,13 @@ export async function loginAccount(
 export async function logoutAccount(): Promise<void> {
   if (cloudEnabled()) {
     const sb = getSupabase();
-    if (sb) await sb.auth.signOut();
+    if (sb) {
+      try {
+        await sb.auth.signOut();
+      } catch (e) {
+        console.warn("[auth] signOut network", e);
+      }
+    }
   }
   setSession(null);
 }

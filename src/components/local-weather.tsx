@@ -1,6 +1,7 @@
 /**
  * Clima de la ubicación del usuario (geolocalización + Open-Meteo).
  * Sin API key. Si deniega GPS, cae a Buenos Aires.
+ * Fallos de red se muestran amigables (no se toca Supabase).
  */
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,18 @@ const WMO: Record<number, string> = {
 
 function codeLabel(code: number) {
   return WMO[code] ?? `Código ${code}`;
+}
+
+function netMsg(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e ?? "");
+  if (
+    /networkerror|failed to fetch|load failed|network request failed|aborterror/i.test(
+      m,
+    )
+  ) {
+    return "Sin conexión al servicio de clima (reintentá más tarde)";
+  }
+  return m || "Error de clima";
 }
 
 async function reversePlace(lat: number, lon: number): Promise<string> {
@@ -119,7 +132,7 @@ export function LocalWeather({ className }: { className?: string }) {
         if (!cancelled) {
           setWx({
             status: "error",
-            message: e instanceof Error ? e.message : "Error de clima",
+            message: netMsg(e),
           });
         }
       }
@@ -166,7 +179,7 @@ export function LocalWeather({ className }: { className?: string }) {
       {wx.status === "loading" ? (
         <p className="mt-1 text-sm text-muted">Detectando…</p>
       ) : wx.status === "error" ? (
-        <p className="mt-1 text-sm text-danger">{wx.message}</p>
+        <p className="mt-1 text-sm text-muted">{wx.message}</p>
       ) : (
         <>
           <p className="mt-1 font-display text-2xl tabular-nums">
