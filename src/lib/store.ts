@@ -66,8 +66,18 @@ export type Lead = {
   notes: string;
   lostReason?: string;
   winReason?: string;
+  nextContactAt?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type MonthClosure = {
+  key: string;
+  closedAt: string;
+  cobradoArs: number;
+  perdidoArs: number;
+  cobradoCount: number;
+  perdidoCount: number;
 };
 
 type HqState = {
@@ -91,6 +101,7 @@ type HqState = {
   ytVideos: YtVideoStat[];
   ytHistory: YtHistoryPoint[];
   leads: Lead[];
+  monthClosures: MonthClosure[];
   ghRepoInput: string;
   ghToken: string;
   ghSummary: GhRepoSummary | null;
@@ -126,6 +137,7 @@ type HqState = {
   addLead: (lead: Omit<Lead, "id" | "createdAt" | "updatedAt">) => void;
   updateLead: (id: string, patch: Partial<Lead>) => void;
   removeLead: (id: string) => void;
+  closeMonth: (closure: MonthClosure) => void;
   setGhRepoInput: (v: string) => void;
   setGhToken: (v: string) => void;
   setGhData: (summary: GhRepoSummary | null, commits: GhCommit[]) => void;
@@ -178,6 +190,7 @@ const initialState = {
   ytVideos: [] as YtVideoStat[],
   ytHistory: [] as YtHistoryPoint[],
   leads: [] as Lead[],
+  monthClosures: [] as MonthClosure[],
   ghRepoInput: "",
   ghToken: "",
   ghSummary: null as GhRepoSummary | null,
@@ -303,6 +316,13 @@ export const useHq = create<HqState>()(
         })),
       removeLead: (id) =>
         set((s) => ({ leads: s.leads.filter((l) => l.id !== id) })),
+      closeMonth: (closure) =>
+        set((s) => {
+          const rest = (s.monthClosures ?? []).filter((m) => m.key !== closure.key);
+          return {
+            monthClosures: [...rest, closure].sort((a, b) => a.key.localeCompare(b.key)),
+          };
+        }),
       setGhRepoInput: (ghRepoInput) => set({ ghRepoInput }),
       setGhToken: (ghToken) => set({ ghToken }),
       setGhData: (ghSummary, ghCommits) => set({ ghSummary, ghCommits }),
@@ -379,6 +399,9 @@ export const useHq = create<HqState>()(
               ? (p.arsPerUsd as number)
               : 1400,
           leads: Array.isArray(p.leads) ? (p.leads as Lead[]) : [],
+          monthClosures: Array.isArray(p.monthClosures)
+            ? (p.monthClosures as MonthClosure[])
+            : [],
           ghCommits: Array.isArray(p.ghCommits) ? (p.ghCommits as GhCommit[]) : [],
         } as typeof current;
       },
@@ -407,6 +430,7 @@ const PERSIST_KEYS = [
   "ytVideos",
   "ytHistory",
   "leads",
+  "monthClosures",
   "ghRepoInput",
   "ghToken",
   "ghSummary",
