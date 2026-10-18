@@ -17,6 +17,7 @@ import {
   Zap,
   FileText,
   UserRound,
+  Mail,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
@@ -24,7 +25,11 @@ import { Dialog, DialogContent, DialogTrigger } from "./ui/dialog";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { companyScore, switchHqUser, useHq } from "@/lib/store";
-import { logoutAccount, type Session } from "@/lib/accounts";
+import {
+  changeAccountEmail,
+  logoutAccount,
+  type Session,
+} from "@/lib/accounts";
 import { cn } from "@/lib/utils";
 import { CompanyLogo, LogoUploader } from "./logo-uploader";
 
@@ -210,6 +215,43 @@ function SettingsDialog({ session }: { session: Session }) {
   const reset = useHq((s) => s.reset);
   const [open, setOpen] = useState(false);
 
+  const [newEmail, setNewEmail] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailMsg, setEmailMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (open) {
+      setNewEmail("");
+      setEmailPassword("");
+      setEmailMsg(null);
+    }
+  }, [open]);
+
+  async function onChangeEmail(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailMsg(null);
+    setEmailBusy(true);
+    try {
+      const result = await changeAccountEmail(newEmail, emailPassword);
+      if (!result.ok) {
+        setEmailMsg({ tone: "err", text: result.error });
+        return;
+      }
+      setEmailMsg({ tone: "ok", text: result.message });
+      setEmailPassword("");
+      setNewEmail("");
+      // Refrescar UI con el nuevo email en la barra lateral
+      if (!result.needsConfirm) {
+        window.setTimeout(() => window.location.reload(), 1200);
+      }
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -227,9 +269,71 @@ function SettingsDialog({ session }: { session: Session }) {
           </p>
           <p className="text-xs text-subtle">
             {session.mode === "cloud"
-              ? "Los datos se guardan en Supabase (Postgres) y en caché local de este dispositivo."
+              ? "Los datos se guardan en Supabase (Postgres) por user_id. Cambiar el Gmail no borra caja, leads ni tareas."
               : "Los datos de este HQ se guardan solo para esta cuenta en este dispositivo (sin nube)."}
           </p>
+
+          <form
+            className="space-y-3 rounded-lg border border-border/80 bg-elevated/40 p-3"
+            onSubmit={(e) => void onChangeEmail(e)}
+          >
+            <div className="flex items-center gap-2">
+              <Mail className="size-4 text-accent" />
+              <p className="font-display text-lg">Cambiar email / Gmail</p>
+            </div>
+            <p className="text-xs text-muted">
+              Pedimos la contraseña actual para confirmar. El ID de cuenta no cambia.
+            </p>
+            <div>
+              <Label>Email actual</Label>
+              <Input
+                className="mt-1.5 font-mono text-xs"
+                value={session.username}
+                readOnly
+                disabled
+              />
+            </div>
+            <div>
+              <Label>Nuevo email</Label>
+              <Input
+                className="mt-1.5"
+                type="email"
+                autoComplete="email"
+                placeholder="nuevo@gmail.com"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label>Contraseña actual</Label>
+              <Input
+                className="mt-1.5"
+                type="password"
+                autoComplete="current-password"
+                placeholder="••••••••"
+                value={emailPassword}
+                onChange={(e) => setEmailPassword(e.target.value)}
+                required
+              />
+            </div>
+            {emailMsg ? (
+              <p
+                className={
+                  emailMsg.tone === "ok"
+                    ? "text-sm text-ok"
+                    : "text-sm text-danger"
+                }
+                role="status"
+              >
+                {emailMsg.text}
+              </p>
+            ) : null}
+            <Button type="submit" className="w-full gap-2" disabled={emailBusy}>
+              <Mail className="size-3.5" />
+              {emailBusy ? "Guardando…" : "Actualizar email"}
+            </Button>
+          </form>
 
           <h2 className="pt-2 font-display text-xl">Perfil</h2>
           <Field label="Founder" value={profile.founder} onChange={(v) => setProfile({ founder: v })} />

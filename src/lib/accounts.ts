@@ -3,7 +3,7 @@
  * - Con VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY → Supabase Auth (email) + datos en Postgres.
  * - Sin config → cuentas locales en este dispositivo (fallback).
  *
- * No borra ni altera filas de hq_state salvo deleteAccount explícito.
+ * El HQ se guarda por user_id (no por email): cambiar Gmail no mueve ni borra hq_state.
  */
 
 import { getSupabase, isSupabaseConfigured } from "./supabase";
@@ -134,6 +134,12 @@ function mapAuthError(message: string): string {
   if (m.includes("already registered") || m.includes("already been registered")) {
     return "Ese email ya está registrado. Probá entrar.";
   }
+  if (m.includes("same") && m.includes("email")) {
+    return "Ese ya es tu email actual.";
+  }
+  if (m.includes("email rate") || m.includes("over_email")) {
+    return "Demasiados intentos de cambio de email. Esperá unos minutos.";
+  }
   if (m.includes("password")) return "Contraseña inválida (mín. 6 caracteres en Supabase).";
   if (m.includes("email")) return "Email inválido.";
   if (m.includes("confirm")) {
@@ -151,7 +157,6 @@ export async function restoreCloudSession(): Promise<Session | null> {
   try {
     const { data, error } = await sb.auth.getSession();
     if (error || !data.session?.user) {
-      // No borramos sesión local si solo falló la red; getSession suele ser local.
       if (error && /network|fetch/i.test(error.message)) {
         return getSession()?.mode === "cloud" ? getSession() : null;
       }
@@ -172,9 +177,125 @@ export async function restoreCloudSession(): Promise<Session | null> {
     return session;
   } catch (e) {
     console.warn("[auth] restoreCloudSession network", e);
-    // Offline: conservar sesión en caché si ya existía
     return getSession()?.mode === "cloud" ? getSession() : null;
   }
+}
+
+/**
+ * Cambiar email / Gmail de la cuenta actual.
+ * - Cloud (Supabase): updateUser({ email }). El user_id NO cambia → hq_state intacto.
+ *   Si el proyecto tiene “Confirm email change”, llega un mail al nuevo correo.
+ * - Local: renombra el username de la cuenta en este dispositivo.
+ */
+export async function changeAccountEmail(
+  newEmailRaw: string,
+  currentPassword: string,
+): Promise<
+  | { ok: true; session: Session; needsConfirm: boolean; message: string }
+  | { ok: false; error: string }
+> {
+  const newEmail = normalizeEmail(newEmailRaw);
+  if (!isEmail(newEmail)) {
+    return { ok: false, error: "Usá un email válido (ej. nuevo@gmail.com)." };
+  }
+  if (!currentPassword || currentPassword.length < 1) {
+    return { ok: false, error: "Ingresá tu contraseña actual para confirmar." };
+  }
+
+  const current = getSession();
+  if (!current) return { ok: false, error: "No hay sesión activa." };
+
+  if (cloudEnabled() && current.mode === "cloud") {
+    try {
+      const sb = getSupabase()!;
+      const oldEmail = normalizeEmail(current.username);
+
+      if (newEmail === oldEmail) {
+        return { ok: false, error: "Ese ya es tu email actual." };
+      }
+
+      // Re-autenticar con la contraseña actual (evita hijack de sesión)
+      const { error: reAuthErr } = await sb.auth.signInWithPassword({
+        email: oldEmail,
+        password: currentPassword,
+      });
+      if (reAuthErr) {
+        return { ok: false, error: mapAuthError(reAuthErr.message) };
+      }
+
+      const { data, error } = await sb.auth.updateUser({ email: newEmail });
+      if (error) return { ok: false, error: mapAuthError(error.message) };
+
+      const user = data.user;
+      // Si aún no confirmó el cambio, Supabase puede seguir mostrando el email viejo
+      // hasta que haga click en el link. user_id siempre es el mismo.
+      const effectiveEmail =
+        normalizeEmail(user?.email ?? "") ||
+        normalizeEmail(user?.new_email ?? "") ||
+        newEmail;
+      const pending =
+        !!user?.new_email &&
+        normalizeEmail(user.new_email) === newEmail &&
+        normalizeEmail(user.email ?? "") !== newEmail;
+
+      const session: Session = {
+        userId: current.userId,
+        username: pending ? oldEmail : effectiveEmail,
+        displayName:
+          (user?.user_metadata?.display_name as string | undefined) ||
+          current.displayName ||
+          effectiveEmail.split("@")[0],
+        mode: "cloud",
+      };
+      setSession(session);
+
+      return {
+        ok: true,
+        session,
+        needsConfirm: pending,
+        message: pending
+          ? `Te enviamos un enlace a ${newEmail}. Confirmalo para terminar el cambio. Tus datos del HQ (user_id) no se mueven.`
+          : `Email actualizado a ${effectiveEmail}. Los datos del HQ siguen en la misma cuenta.`,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        error: mapAuthError(e instanceof Error ? e.message : String(e)),
+      };
+    }
+  }
+
+  // Modo local: el “email” es el username
+  const accounts = readAccounts();
+  const account = accounts.find((a) => a.id === current.userId);
+  if (!account) return { ok: false, error: "Cuenta local no encontrada." };
+
+  const passwordHash = await hashPassword(currentPassword);
+  if (passwordHash !== account.passwordHash) {
+    return { ok: false, error: "Contraseña incorrecta." };
+  }
+
+  if (accounts.some((a) => a.username === newEmail && a.id !== account.id)) {
+    return { ok: false, error: "Ese usuario/email ya existe en este dispositivo." };
+  }
+
+  const updated: LocalAccount = { ...account, username: newEmail };
+  writeAccounts(accounts.map((a) => (a.id === account.id ? updated : a)));
+
+  const session: Session = {
+    userId: account.id,
+    username: newEmail,
+    displayName: account.displayName,
+    mode: "local",
+  };
+  setSession(session);
+
+  return {
+    ok: true,
+    session,
+    needsConfirm: false,
+    message: `Usuario actualizado a ${newEmail}. Datos locales intactos.`,
+  };
 }
 
 export async function registerAccount(
