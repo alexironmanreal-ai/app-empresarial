@@ -25,6 +25,7 @@ import { printDashboard } from "@/components/print-report";
 import { cn } from "@/lib/utils";
 import { HqElonBlock } from "@/components/hq-elon";
 import { LiveClock } from "@/components/live-clock";
+import { LocalWeather } from "@/components/local-weather";
 import { OfficeShortcuts, OfficeShortcutChips } from "@/components/office-shortcuts";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -130,8 +131,9 @@ function Home() {
               </p>
             </div>
           </div>
-          <div className="flex min-w-[11rem] flex-col justify-center rounded-xl border border-accent/20 bg-surface p-4 shadow-[var(--shadow-border)]">
+          <div className="flex min-w-[12rem] flex-col justify-center rounded-xl border border-accent/20 bg-surface p-4 shadow-[var(--shadow-border)]">
             <LiveClock />
+            <LocalWeather />
             <div className="mt-3 no-print">
               <OfficeShortcutChips />
             </div>
