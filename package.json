@@ -11,7 +11,7 @@
     "dev": "vite --host --port 8080",
     "build": "vite build",
     "preview": "vite preview --port 8080",
-    "electron:dev": "concurrently -k \"vite --host --port 8080\" \"wait-on http://localhost:8080 && electron .\"",
+    "electron:dev": "concurrently -k \"vite --host --port 8080\" \"wait-on http://localhost:8080 && electron . --no-sandbox\"",
     "electron:build": "vite build && electron-builder --win",
     "electron:build:linux": "vite build && electron-builder --linux",
     "electron:build:all": "vite build && electron-builder --win --linux",
