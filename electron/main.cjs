@@ -1,8 +1,8 @@
 /**
  * Sentinel HQ — proceso principal Electron
- * Sirve el build de Vite y proxea APIs (mismo contrato que vite.config).
+ * Sirve el build de Vite, proxea APIs y expone widget flotante anclado.
  */
-const { app, BrowserWindow, shell } = require("electron");
+const { app, BrowserWindow, shell, ipcMain, screen } = require("electron");
 const path = require("path");
 const http = require("http");
 const https = require("https");
@@ -17,9 +17,11 @@ if (process.platform === "linux") {
 
 const isDev = !app.isPackaged;
 const DIST = path.join(__dirname, "..", "dist");
+const PRELOAD = path.join(__dirname, "preload.cjs");
 const HOST = "127.0.0.1";
 let PORT = 17473;
 let mainWindow = null;
+let widgetWindow = null;
 let server = null;
 
 const PROXIES = {
@@ -118,7 +120,6 @@ function createLocalServer() {
         }
       }
       if (isDev) {
-        // En dev la UI la sirve Vite; este server solo proxea si hiciera falta
         res.writeHead(404);
         res.end("dev mode");
         return;
@@ -140,6 +141,93 @@ function createLocalServer() {
   });
 }
 
+function appBaseUrl() {
+  if (isDev) return "http://localhost:8080";
+  return `http://${HOST}:${PORT}`;
+}
+
+function broadcastWidgetState() {
+  const open = !!(widgetWindow && !widgetWindow.isDestroyed());
+  for (const w of BrowserWindow.getAllWindows()) {
+    if (!w.isDestroyed()) w.webContents.send("widget:state", open);
+  }
+}
+
+function createWidgetWindow() {
+  if (widgetWindow && !widgetWindow.isDestroyed()) {
+    widgetWindow.show();
+    widgetWindow.focus();
+    broadcastWidgetState();
+    return widgetWindow;
+  }
+
+  const display = screen.getPrimaryDisplay();
+  const { width: sw, height: sh } = display.workAreaSize;
+  const ww = 320;
+  const wh = 360;
+  const x = Math.max(0, sw - ww - 24);
+  const y = 24;
+
+  widgetWindow = new BrowserWindow({
+    width: ww,
+    height: wh,
+    x,
+    y,
+    minWidth: 280,
+    minHeight: 280,
+    maxWidth: 420,
+    maxHeight: 520,
+    frame: false,
+    transparent: false,
+    resizable: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    hasShadow: true,
+    backgroundColor: "#040b08",
+    title: "Sentinel Widget",
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: PRELOAD,
+    },
+  });
+
+  widgetWindow.setAlwaysOnTop(true, "floating");
+  widgetWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+
+  widgetWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: "deny" };
+  });
+
+  widgetWindow.loadURL(`${appBaseUrl()}/widget`);
+
+  widgetWindow.on("closed", () => {
+    widgetWindow = null;
+    broadcastWidgetState();
+  });
+
+  broadcastWidgetState();
+  return widgetWindow;
+}
+
+function closeWidgetWindow() {
+  if (widgetWindow && !widgetWindow.isDestroyed()) {
+    widgetWindow.close();
+  }
+  widgetWindow = null;
+  broadcastWidgetState();
+}
+
+function toggleWidgetWindow() {
+  if (widgetWindow && !widgetWindow.isDestroyed()) {
+    closeWidgetWindow();
+    return false;
+  }
+  createWidgetWindow();
+  return true;
+}
+
 async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -151,6 +239,7 @@ async function createWindow() {
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: PRELOAD,
     },
   });
 
@@ -171,6 +260,17 @@ async function createWindow() {
     mainWindow = null;
   });
 }
+
+ipcMain.handle("widget:toggle", () => toggleWidgetWindow());
+ipcMain.handle("widget:open", () => {
+  createWidgetWindow();
+  return true;
+});
+ipcMain.handle("widget:close", () => {
+  closeWidgetWindow();
+  return false;
+});
+ipcMain.handle("widget:is-open", () => !!(widgetWindow && !widgetWindow.isDestroyed()));
 
 app.whenReady().then(createWindow);
 

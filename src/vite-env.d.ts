@@ -8,3 +8,16 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+interface SentinelDesktop {
+  isElectron: true;
+  toggleWidget: () => Promise<boolean>;
+  openWidget: () => Promise<boolean>;
+  closeWidget: () => Promise<boolean>;
+  isWidgetOpen: () => Promise<boolean>;
+  onWidgetState?: (cb: (open: boolean) => void) => () => void;
+}
+
+interface Window {
+  sentinel?: SentinelDesktop;
+}

@@ -12,6 +12,7 @@ import { Route as PipelineRoute } from "./routes/pipeline";
 import { Route as TiempoRoute } from "./routes/tiempo";
 import { Route as CvRoute } from "./routes/cv";
 import { Route as CreadorRoute } from "./routes/creador";
+import { Route as WidgetRoute } from "./routes/widget";
 
 const indexRoute = IndexRoute.update({ id: "/", path: "/", getParentRoute: () => rootRoute });
 const tareasRoute = TareasRoute.update({ id: "/tareas", path: "/tareas", getParentRoute: () => rootRoute });
@@ -26,6 +27,7 @@ const pipelineRoute = PipelineRoute.update({ id: "/pipeline", path: "/pipeline",
 const tiempoRoute = TiempoRoute.update({ id: "/tiempo", path: "/tiempo", getParentRoute: () => rootRoute });
 const cvRoute = CvRoute.update({ id: "/cv", path: "/cv", getParentRoute: () => rootRoute });
 const creadorRoute = CreadorRoute.update({ id: "/creador", path: "/creador", getParentRoute: () => rootRoute });
+const widgetRoute = WidgetRoute.update({ id: "/widget", path: "/widget", getParentRoute: () => rootRoute });
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -41,4 +43,5 @@ export const routeTree = rootRoute.addChildren([
   tiempoRoute,
   cvRoute,
   creadorRoute,
+  widgetRoute,
 ]);

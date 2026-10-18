@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { createRootRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { Shell } from "@/components/layout";
 import { Onboarding } from "@/components/onboarding";
 import { PrintReport } from "@/components/print-report";
@@ -9,6 +9,14 @@ export const Route = createRootRoute({
 });
 
 function Root() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isWidget = pathname === "/widget";
+
+  // Widget flotante: sin shell, auth ni onboarding (lee el mismo store local)
+  if (isWidget) {
+    return <Outlet />;
+  }
+
   return (
     <AuthGate>
       {(session) => (
