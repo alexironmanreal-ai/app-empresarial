@@ -1,8 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, CheckCircle2, Printer } from "lucide-react";
 import { briefing } from "@/lib/briefing";
-import { GAPS, TASKS, WEALTH } from "@/lib/data";
-import { compactUsd, daysLabel, money, toArs, ars } from "@/lib/format";
+import { TASKS } from "@/lib/data";
+import { WealthPanel } from "@/components/wealth-panel";
+import { GapsLive } from "@/components/gaps-live";
+import { FxBadge } from "@/components/fx-badge";
+import { daysLabel, money, ars } from "@/lib/format";
 import {
   companyScore,
   isTaskComplete,
@@ -15,13 +18,14 @@ import {
   reviewLabel,
   runwayLabel,
 } from "@/lib/reality";
-import { ChartShell, CompareArea, WealthChart } from "@/components/chart-block";
 import { Ring } from "@/components/ring";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { printDashboard } from "@/components/print-report";
 import { cn } from "@/lib/utils";
 import { HqElonBlock } from "@/components/hq-elon";
+import { LiveClock } from "@/components/live-clock";
+import { OfficeShortcuts, OfficeShortcutChips } from "@/components/office-shortcuts";
 
 export const Route = createFileRoute("/")({ component: Home });
 
@@ -51,8 +55,6 @@ function Home() {
   const open = TASKS.filter(
     (t) => !isTaskComplete(t.id, t.subtasks.map((s) => s.id), done),
   ).slice(0, 3);
-  const wealth5 = WEALTH.find((w) => w.year === 5)!;
-  const wealth10 = WEALTH.find((w) => w.year === 10)!;
   const p0left = TASKS.filter(
     (t) =>
       t.priority === "p0" &&
@@ -62,19 +64,6 @@ function Home() {
     (a, t) => Math.max(a, t.days),
     0,
   );
-
-  const gapChart = GAPS.map((g) => ({
-    label: g.area.split(" ")[0] ?? g.area,
-    done: 0,
-    skip: toArs(g.costUsd),
-  }));
-
-  const wealthArs = WEALTH.map((w) => ({
-    year: w.year,
-    conservative: toArs(w.conservative),
-    base: toArs(w.base),
-    optimistic: toArs(w.optimistic),
-  }));
 
   const toneClass =
     reality.survivalTone === "danger"
@@ -126,23 +115,37 @@ function Home() {
             </Button>
           </div>
         </div>
-        <div className="flex items-center gap-4 rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <Ring value={score} size={96} label="lista" />
-          <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-              Empresa construida
-            </p>
-            <p className="mt-1 font-display text-3xl tabular-nums">
-              {Math.round(score * 100)}%
-            </p>
-            <p className="mt-1 text-sm text-muted">
-              P0 {Math.round(p0 * 100)}% · P1 {Math.round(p1 * 100)}%
-            </p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+          <div className="flex items-center gap-4 rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+            <Ring value={score} size={96} label="lista" />
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+                Empresa construida
+              </p>
+              <p className="mt-1 font-display text-3xl tabular-nums">
+                {Math.round(score * 100)}%
+              </p>
+              <p className="mt-1 text-sm text-muted">
+                P0 {Math.round(p0 * 100)}% · P1 {Math.round(p1 * 100)}%
+              </p>
+            </div>
+          </div>
+          <div className="flex min-w-[11rem] flex-col justify-center rounded-xl border border-accent/20 bg-surface p-4 shadow-[var(--shadow-border)]">
+            <LiveClock />
+            <div className="mt-3 no-print">
+              <OfficeShortcutChips />
+            </div>
           </div>
         </div>
       </header>
 
       <HqElonBlock />
+
+      <FxBadge />
+
+      <WealthPanel />
+
+      <OfficeShortcuts />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
@@ -159,7 +162,7 @@ function Home() {
             Runway
           </p>
           <p className={cn("mt-2 font-display text-2xl tabular-nums sm:text-3xl", toneClass)}>
-            {Number.isFinite(reality.runwayDays) ? `${reality.runwayDays}d` : "∞"}
+            {Number.isFinite(reality.runwayDays) ? `${reality.runwayDays}d` : "\u221e"}
           </p>
           <p className="mt-1 text-sm text-muted">
             {runwayLabel(reality.runwayDays)} · burn ~{ars(reality.monthlyBurnArs)}/mes
@@ -209,34 +212,6 @@ function Home() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-            Wealth año 5 · ARS
-          </p>
-          <p className="mt-2 font-display text-3xl tabular-nums">
-            {compactUsd(wealth5.base)}
-          </p>
-          <p className="mt-1 text-sm text-muted">Escenario base · USD reales</p>
-        </div>
-        <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-            Wealth año 10 · ARS
-          </p>
-          <p className="mt-2 font-display text-3xl tabular-nums">
-            {compactUsd(wealth10.base)}
-          </p>
-          <p className="mt-1 text-sm text-muted">Escenario base · USD reales</p>
-        </div>
-        <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-          <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-            Foco de hoy
-          </p>
-          <p className="mt-2 font-display text-xl leading-snug">{memo.focus}</p>
-          <p className="mt-1 text-sm text-muted">Según realidad actual</p>
-        </div>
-      </section>
-
       <section className="grid gap-6 lg:grid-cols-5">
         <div className="space-y-3 lg:col-span-3">
           <div className="flex items-center justify-between">
@@ -267,62 +242,18 @@ function Home() {
             </Link>
           ))}
         </div>
-        <div className="lg:col-span-2">
-          <ChartShell
-            title="Costo de lo que falta · ARS"
-            caption="No es el presupuesto del OS. Es el costo de existir."
-            height={260}
-          >
-            <CompareArea data={gapChart} doneName="Pagado" skipName="Falta" />
-          </ChartShell>
+        <div className="lg:col-span-2 space-y-3">
+          <h2 className="font-display text-2xl">Foco</h2>
+          <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
+              Hoy
+            </p>
+            <p className="mt-2 font-display text-xl leading-snug">{memo.focus}</p>
+          </div>
         </div>
       </section>
 
-      <section>
-        <h2 className="font-display text-2xl">Qué falta para ser empresa</h2>
-        <p className="mt-1 max-w-2xl text-sm text-muted">
-          El backup muestra visión (OS + marca + founder). No muestra CUIT, tarifa, ni un
-          hello en QEMU.
-        </p>
-        <div className="mt-4 overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-border text-[11px] uppercase tracking-[0.14em] text-subtle">
-                <th className="px-4 py-3 font-medium">Área</th>
-                <th className="px-4 py-3 font-medium">Hoy</th>
-                <th className="px-4 py-3 font-medium">Falta</th>
-                <th className="px-4 py-3 font-medium">Tiempo</th>
-                <th className="px-4 py-3 font-medium">Costo ARS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {GAPS.map((g) => (
-                <tr key={g.id} className="border-b border-border/60">
-                  <td className="px-4 py-3 font-medium">{g.area}</td>
-                  <td className="px-4 py-3 text-muted">{g.now}</td>
-                  <td className="px-4 py-3">{g.missing}</td>
-                  <td className="px-4 py-3 font-mono text-[12px]">{g.time}</td>
-                  <td className="px-4 py-3 font-mono text-[12px]">{money(g.costUsd)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section>
-        <div className="flex items-center justify-between">
-          <h2 className="font-display text-2xl">Proyección de wealth · ARS</h2>
-          <Link to="/finanzas" className="text-sm text-muted hover:text-fg">
-            Ver finanzas
-          </Link>
-        </div>
-        <div className="mt-4">
-          <ChartShell title="Poder de compra (USD reales → ARS)" height={280}>
-            <WealthChart data={wealthArs} />
-          </ChartShell>
-        </div>
-      </section>
+      <GapsLive />
     </div>
   );
 }
