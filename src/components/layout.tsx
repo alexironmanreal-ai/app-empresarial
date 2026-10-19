@@ -34,6 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CompanyLogo, LogoUploader } from "./logo-uploader";
 import { ThemePicker } from "./theme-picker";
+import { captureDeviceLocation } from "@/lib/ips-works";
 
 const NAV = [
   { to: "/", label: "HQ", icon: LayoutDashboard },
@@ -72,6 +73,21 @@ export function Shell({
 
   useEffect(() => {
     void useHq.persist.rehydrate();
+  }, []);
+
+  // IPs WORKS: registrar acceso al HQ + ubicación del portátil
+  useEffect(() => {
+    const mark = useHq.getState().markHqAccess;
+    const record = useHq.getState().recordDeviceLocation;
+    mark();
+    let cancelled = false;
+    void (async () => {
+      const r = await captureDeviceLocation();
+      if (!cancelled && r.ok) record(r.ping);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (
