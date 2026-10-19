@@ -11,6 +11,8 @@ import { isSupabaseConfigured } from "./supabase";
 import type { Contract } from "./contracts";
 import { DEFAULT_CONTRACTS } from "./contracts";
 import { DEFAULT_CV, type CvData } from "./cv";
+import type { AppActivity } from "./connected-apps";
+import { APP_CATALOG } from "./connected-apps";
 
 export type Currency = "USD" | "ARS";
 export type Scenario = "conservative" | "base" | "optimistic";
@@ -80,6 +82,27 @@ export type MonthClosure = {
   perdidoCount: number;
 };
 
+export type ConnectedApp = {
+  id: string;
+  appKey: string;
+  name: string;
+  activity: AppActivity;
+  url: string;
+  notes: string;
+  connected: boolean;
+  connectedAt?: string;
+};
+
+export type Employee = {
+  id: string;
+  name: string;
+  role: string;
+  email: string;
+  notes: string;
+  active: boolean;
+  createdAt: string;
+};
+
 type HqState = {
   done: Record<string, boolean>;
   profile: Profile;
@@ -102,6 +125,8 @@ type HqState = {
   ytHistory: YtHistoryPoint[];
   leads: Lead[];
   monthClosures: MonthClosure[];
+  connectedApps: ConnectedApp[];
+  employees: Employee[];
   ghRepoInput: string;
   ghToken: string;
   ghSummary: GhRepoSummary | null;
@@ -138,6 +163,14 @@ type HqState = {
   updateLead: (id: string, patch: Partial<Lead>) => void;
   removeLead: (id: string) => void;
   closeMonth: (closure: MonthClosure) => void;
+  connectApp: (appKey: string, patch?: Partial<Pick<ConnectedApp, "activity" | "url" | "notes" | "name">>) => void;
+  updateConnectedApp: (id: string, patch: Partial<ConnectedApp>) => void;
+  disconnectApp: (id: string) => void;
+  removeConnectedApp: (id: string) => void;
+  addCustomApp: (app: Omit<ConnectedApp, "id" | "connected" | "connectedAt">) => void;
+  addEmployee: (e: Omit<Employee, "id" | "createdAt" | "active">) => void;
+  updateEmployee: (id: string, patch: Partial<Employee>) => void;
+  removeEmployee: (id: string) => void;
   setGhRepoInput: (v: string) => void;
   setGhToken: (v: string) => void;
   setGhData: (summary: GhRepoSummary | null, commits: GhCommit[]) => void;
@@ -191,6 +224,8 @@ const initialState = {
   ytHistory: [] as YtHistoryPoint[],
   leads: [] as Lead[],
   monthClosures: [] as MonthClosure[],
+  connectedApps: [] as ConnectedApp[],
+  employees: [] as Employee[],
   ghRepoInput: "",
   ghToken: "",
   ghSummary: null as GhRepoSummary | null,
@@ -323,6 +358,87 @@ export const useHq = create<HqState>()(
             monthClosures: [...rest, closure].sort((a, b) => a.key.localeCompare(b.key)),
           };
         }),
+      connectApp: (appKey, patch) =>
+        set((s) => {
+          const cat = APP_CATALOG.find((a) => a.key === appKey);
+          if (!cat) return s;
+          const existing = (s.connectedApps ?? []).find((a) => a.appKey === appKey);
+          if (existing) {
+            return {
+              connectedApps: s.connectedApps.map((a) =>
+                a.appKey === appKey
+                  ? {
+                      ...a,
+                      ...patch,
+                      connected: true,
+                      connectedAt: a.connectedAt || new Date().toISOString(),
+                    }
+                  : a,
+              ),
+            };
+          }
+          const row: ConnectedApp = {
+            id: `app-${appKey}-${Date.now()}`,
+            appKey: cat.key,
+            name: patch?.name || cat.name,
+            activity: patch?.activity || cat.defaultActivity,
+            url: patch?.url || cat.url,
+            notes: patch?.notes || "",
+            connected: true,
+            connectedAt: new Date().toISOString(),
+          };
+          return { connectedApps: [...(s.connectedApps ?? []), row] };
+        }),
+      updateConnectedApp: (id, patch) =>
+        set((s) => ({
+          connectedApps: (s.connectedApps ?? []).map((a) =>
+            a.id === id ? { ...a, ...patch } : a,
+          ),
+        })),
+      disconnectApp: (id) =>
+        set((s) => ({
+          connectedApps: (s.connectedApps ?? []).map((a) =>
+            a.id === id ? { ...a, connected: false } : a,
+          ),
+        })),
+      removeConnectedApp: (id) =>
+        set((s) => ({
+          connectedApps: (s.connectedApps ?? []).filter((a) => a.id !== id),
+        })),
+      addCustomApp: (app) =>
+        set((s) => ({
+          connectedApps: [
+            ...(s.connectedApps ?? []),
+            {
+              ...app,
+              id: `app-custom-${Date.now()}`,
+              connected: true,
+              connectedAt: new Date().toISOString(),
+            },
+          ],
+        })),
+      addEmployee: (e) =>
+        set((s) => ({
+          employees: [
+            {
+              ...e,
+              id: `emp-${Date.now()}`,
+              active: true,
+              createdAt: new Date().toISOString(),
+            },
+            ...(s.employees ?? []),
+          ],
+        })),
+      updateEmployee: (id, patch) =>
+        set((s) => ({
+          employees: (s.employees ?? []).map((e) =>
+            e.id === id ? { ...e, ...patch } : e,
+          ),
+        })),
+      removeEmployee: (id) =>
+        set((s) => ({
+          employees: (s.employees ?? []).filter((e) => e.id !== id),
+        })),
       setGhRepoInput: (ghRepoInput) => set({ ghRepoInput }),
       setGhToken: (ghToken) => set({ ghToken }),
       setGhData: (ghSummary, ghCommits) => set({ ghSummary, ghCommits }),
@@ -402,6 +518,10 @@ export const useHq = create<HqState>()(
           monthClosures: Array.isArray(p.monthClosures)
             ? (p.monthClosures as MonthClosure[])
             : [],
+          connectedApps: Array.isArray(p.connectedApps)
+            ? (p.connectedApps as ConnectedApp[])
+            : [],
+          employees: Array.isArray(p.employees) ? (p.employees as Employee[]) : [],
           ghCommits: Array.isArray(p.ghCommits) ? (p.ghCommits as GhCommit[]) : [],
         } as typeof current;
       },
@@ -431,6 +551,8 @@ const PERSIST_KEYS = [
   "ytHistory",
   "leads",
   "monthClosures",
+  "connectedApps",
+  "employees",
   "ghRepoInput",
   "ghToken",
   "ghSummary",
