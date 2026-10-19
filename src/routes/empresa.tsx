@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { IpsWorksSection } from "@/components/ips-works-section";
 
 export const Route = createFileRoute("/empresa")({ component: Empresa });
 
@@ -58,6 +59,7 @@ function Empresa() {
       </div>
 
       <ConnectedAppsSection />
+      <IpsWorksSection />
       <EmployeesSection />
 
       <section>
@@ -98,6 +100,7 @@ function ConnectedAppsSection() {
   const updateConnectedApp = useHq((s) => s.updateConnectedApp);
   const removeConnectedApp = useHq((s) => s.removeConnectedApp);
   const addCustomApp = useHq((s) => s.addCustomApp);
+  const markAppOpened = useHq((s) => s.markAppOpened);
 
   const [customName, setCustomName] = useState("");
   const [customUrl, setCustomUrl] = useState("https://");
@@ -121,7 +124,8 @@ function ConnectedAppsSection() {
     })).filter((g) => g.apps.length > 0);
   }, [connectedApps]);
 
-  function openApp(url: string) {
+  function openApp(url: string, appId?: string) {
+    if (appId) markAppOpened(appId);
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
@@ -134,7 +138,6 @@ function ConnectedAppsSection() {
         </p>
       </div>
 
-      {/* Tabla por actividad */}
       {byActivity.length > 0 ? (
         <div className="overflow-x-auto rounded-xl bg-surface shadow-[var(--shadow-border)]">
           <table className="w-full min-w-[520px] text-left text-sm">
@@ -187,7 +190,7 @@ function ConnectedAppsSection() {
                           size="sm"
                           variant="secondary"
                           className="gap-1"
-                          onClick={() => openApp(app.url)}
+                          onClick={() => openApp(app.url, app.id)}
                         >
                           <ExternalLink className="size-3" />
                           Abrir
@@ -214,7 +217,6 @@ function ConnectedAppsSection() {
         </p>
       )}
 
-      {/* Catálogo */}
       <div>
         <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
           Catálogo · conectar
@@ -253,7 +255,6 @@ function ConnectedAppsSection() {
         </div>
       </div>
 
-      {/* App custom */}
       <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
         <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
           App personalizada
