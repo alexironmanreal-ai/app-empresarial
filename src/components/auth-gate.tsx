@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   cloudEnabled,
   getSession,
@@ -14,8 +14,28 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { FaceGate } from "./face-gate";
+import { BootSplash } from "./boot-splash";
 
 type Mode = "login" | "register";
+
+const SPLASH_KEY = "sentinel-hq-splash-seen-session";
+
+function shouldShowSplash(): boolean {
+  try {
+    // Una vez por pestaña/sesión de navegador
+    return sessionStorage.getItem(SPLASH_KEY) !== "1";
+  } catch {
+    return true;
+  }
+}
+
+function markSplashSeen() {
+  try {
+    sessionStorage.setItem(SPLASH_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+}
 
 export function AuthGate({
   children,
@@ -24,6 +44,7 @@ export function AuthGate({
 }) {
   const [session, setSessionState] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
+  const [splashDone, setSplashDone] = useState(() => !shouldShowSplash());
   const [mode, setMode] = useState<Mode>("login");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -32,6 +53,11 @@ export function AuthGate({
   const [busy, setBusy] = useState(false);
   const cloud = cloudEnabled();
   const accounts = listAccounts();
+
+  const onSplashDone = useCallback(() => {
+    markSplashSeen();
+    setSplashDone(true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,6 +113,11 @@ export function AuthGate({
     }
   }
 
+  // Splash siempre primero (una vez por sesión de pestaña)
+  if (!splashDone) {
+    return <BootSplash onDone={onSplashDone} />;
+  }
+
   if (!ready) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-bg text-muted">
@@ -99,7 +130,18 @@ export function AuthGate({
 
   if (!session) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-bg p-4">
+      <div
+        className="flex min-h-dvh items-center justify-center bg-bg p-4"
+        style={{
+          animation: "hq-login-in 0.55s ease both",
+        }}
+      >
+        <style>{`
+          @keyframes hq-login-in {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}</style>
         <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-[var(--shadow-border)]">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-subtle">
             Sentinel HQ
