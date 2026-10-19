@@ -18,6 +18,7 @@ import {
   FileText,
   UserRound,
   Mail,
+  Palette,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
@@ -32,6 +33,7 @@ import {
 } from "@/lib/accounts";
 import { cn } from "@/lib/utils";
 import { CompanyLogo, LogoUploader } from "./logo-uploader";
+import { ThemePicker } from "./theme-picker";
 
 const NAV = [
   { to: "/", label: "HQ", icon: LayoutDashboard },
@@ -243,7 +245,6 @@ function SettingsDialog({ session }: { session: Session }) {
       setEmailMsg({ tone: "ok", text: result.message });
       setEmailPassword("");
       setNewEmail("");
-      // Refrescar UI con el nuevo email en la barra lateral
       if (!result.needsConfirm) {
         window.setTimeout(() => window.location.reload(), 1200);
       }
@@ -334,6 +335,14 @@ function SettingsDialog({ session }: { session: Session }) {
               {emailBusy ? "Guardando…" : "Actualizar email"}
             </Button>
           </form>
+
+          <div className="rounded-lg border border-border/80 bg-elevated/40 p-3">
+            <div className="mb-3 flex items-center gap-2">
+              <Palette className="size-4 text-accent" />
+              <h2 className="font-display text-lg">Apariencia</h2>
+            </div>
+            <ThemePicker />
+          </div>
 
           <h2 className="pt-2 font-display text-xl">Perfil</h2>
           <Field label="Founder" value={profile.founder} onChange={(v) => setProfile({ founder: v })} />
