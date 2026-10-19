@@ -14,6 +14,17 @@ import { DEFAULT_CV, type CvData } from "./cv";
 import type { AppActivity } from "./connected-apps";
 import { APP_CATALOG } from "./connected-apps";
 import type { DeviceLocationPing } from "./ips-works";
+import {
+  SOCIAL_HISTORY_MAX,
+  emptySocial,
+  normalizeCustomApis,
+  normalizeSocial,
+  type CustomApi,
+  type SocialPlatform,
+  type SocialPost,
+  type SocialState,
+  type SocialStats,
+} from "./social";
 
 export type Currency = "USD" | "ARS";
 export type Scenario = "conservative" | "base" | "optimistic";
@@ -125,6 +136,8 @@ type HqState = {
   ytStats: YtChannelStats | null;
   ytVideos: YtVideoStat[];
   ytHistory: YtHistoryPoint[];
+  social: Record<SocialPlatform, SocialState>;
+  customApis: CustomApi[];
   leads: Lead[];
   monthClosures: MonthClosure[];
   connectedApps: ConnectedApp[];
@@ -164,6 +177,20 @@ type HqState = {
   setYtApiKey: (k: string) => void;
   setYtChannelInput: (v: string) => void;
   setYtStats: (s: YtChannelStats | null, videos?: YtVideoStat[]) => void;
+  setSocialField: (
+    platform: SocialPlatform,
+    patch: Partial<Pick<SocialState, "token" | "handle">>,
+  ) => void;
+  setSocialData: (
+    platform: SocialPlatform,
+    stats: SocialStats,
+    recent: SocialPost[],
+  ) => void;
+  addSocialManualPoint: (platform: SocialPlatform, followers: number) => void;
+  clearSocial: (platform: SocialPlatform) => void;
+  addCustomApi: (api: CustomApi) => void;
+  updateCustomApi: (id: string, patch: Partial<CustomApi>) => void;
+  removeCustomApi: (id: string) => void;
   addLead: (lead: Omit<Lead, "id" | "createdAt" | "updatedAt">) => void;
   updateLead: (id: string, patch: Partial<Lead>) => void;
   removeLead: (id: string) => void;
@@ -230,6 +257,8 @@ const initialState = {
   ytStats: null as YtChannelStats | null,
   ytVideos: [] as YtVideoStat[],
   ytHistory: [] as YtHistoryPoint[],
+  social: emptySocial(),
+  customApis: [] as CustomApi[],
   leads: [] as Lead[],
   monthClosures: [] as MonthClosure[],
   connectedApps: [] as ConnectedApp[],
@@ -334,6 +363,65 @@ export const useHq = create<HqState>()(
             ytHistory,
           };
         }),
+      setSocialField: (platform, patch) =>
+        set((s) => ({
+          social: {
+            ...s.social,
+            [platform]: { ...s.social[platform], ...patch },
+          },
+        })),
+      setSocialData: (platform, stats, recent) =>
+        set((s) => {
+          const cur = s.social[platform];
+          const point = {
+            at: stats.fetchedAt,
+            followers: stats.followers,
+            posts: stats.posts,
+          };
+          return {
+            social: {
+              ...s.social,
+              [platform]: {
+                ...cur,
+                stats,
+                recent,
+                history: [...cur.history, point].slice(-SOCIAL_HISTORY_MAX),
+              },
+            },
+          };
+        }),
+      addSocialManualPoint: (platform, followers) =>
+        set((s) => {
+          const cur = s.social[platform];
+          const point = {
+            at: new Date().toISOString(),
+            followers,
+            posts: cur.stats?.posts ?? null,
+          };
+          return {
+            social: {
+              ...s.social,
+              [platform]: {
+                ...cur,
+                history: [...cur.history, point].slice(-SOCIAL_HISTORY_MAX),
+              },
+            },
+          };
+        }),
+      clearSocial: (platform) =>
+        set((s) => ({
+          social: {
+            ...s.social,
+            [platform]: { ...s.social[platform], stats: null, recent: [], history: [] },
+          },
+        })),
+      addCustomApi: (api) => set((s) => ({ customApis: [...s.customApis, api] })),
+      updateCustomApi: (id, patch) =>
+        set((s) => ({
+          customApis: s.customApis.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+        })),
+      removeCustomApi: (id) =>
+        set((s) => ({ customApis: s.customApis.filter((a) => a.id !== id) })),
       addLead: (lead) =>
         set((s) => {
           const now = new Date().toISOString();
@@ -528,6 +616,8 @@ export const useHq = create<HqState>()(
             typeof p.arsPerUsd === "number" && Number.isFinite(p.arsPerUsd)
               ? (p.arsPerUsd as number)
               : 1400,
+          social: normalizeSocial(p.social),
+          customApis: normalizeCustomApis(p.customApis),
           leads: Array.isArray(p.leads) ? (p.leads as Lead[]) : [],
           monthClosures: Array.isArray(p.monthClosures)
             ? (p.monthClosures as MonthClosure[])
@@ -555,7 +645,7 @@ export const useHq = create<HqState>()(
 const PERSIST_KEYS = [
   "done", "profile", "currency", "scenario", "onboarded", "focusP0", "mpToken", "mpBalance",
   "caja", "dayLog", "dayNotes", "daySnapshots", "lastReviewAt", "extraMonthlyBurnArs",
-  "ytApiKey", "ytChannelInput", "ytStats", "ytVideos", "ytHistory", "leads", "monthClosures",
+  "ytApiKey", "ytChannelInput", "ytStats", "ytVideos", "ytHistory", "social", "customApis", "leads", "monthClosures",
   "connectedApps", "employees", "lastHqAccessAt", "lastDeviceLocation", "deviceLocationHistory",
   "ghRepoInput", "ghToken", "ghSummary", "ghCommits", "deepWork", "contracts", "killedTaskIds",
   "algorithmDone", "cv", "paidExpenseIds", "arsPerUsd",
@@ -618,7 +708,11 @@ export async function switchHqUser() {
   if (session?.mode === "cloud" && isSupabaseConfigured) {
     const remote = await loadHqFromCloud(uid);
     if (remote && Object.keys(remote).length > 0) {
-      useHq.setState({ ...remote });
+      useHq.setState({
+        ...remote,
+        social: normalizeSocial(remote.social),
+        customApis: normalizeCustomApis(remote.customApis),
+      } as Partial<HqState>);
     } else {
       await flushCloudSave();
     }

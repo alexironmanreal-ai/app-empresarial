@@ -81,6 +81,25 @@ export default defineConfig(({ mode }) => {
           secure: true,
           rewrite: (path: string) => path.replace(/^\/api\/gh/, ""),
         },
+        // Marca personal
+        "/api/ig": {
+          target: "https://graph.instagram.com",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path: string) => path.replace(/^\/api\/ig/, ""),
+        },
+        "/api/x": {
+          target: "https://api.x.com",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path: string) => path.replace(/^\/api\/x/, ""),
+        },
+        "/api/li": {
+          target: "https://api.linkedin.com",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path: string) => path.replace(/^\/api\/li/, ""),
+        },
       },
     },
   };

@@ -1,4 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { YT_MILESTONES, YT_PILLARS, YT_TITLES } from "@/lib/data";
 import { num } from "@/lib/format";
@@ -8,10 +7,9 @@ import { CandlestickChart, ChartShell, SimpleLine } from "@/components/chart-blo
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { StatCard } from "./shared";
 
-export const Route = createFileRoute("/youtube")({ component: Youtube });
-
-function Youtube() {
+export function YoutubePanel() {
   const profile = useHq((s) => s.profile);
   const ytApiKey = useHq((s) => s.ytApiKey);
   const ytChannelInput = useHq((s) => s.ytChannelInput);
@@ -116,9 +114,9 @@ function Youtube() {
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-subtle">
             Contenido · live
           </p>
-          <h1 className="mt-1 font-display text-4xl sm:text-5xl">
+          <h2 className="mt-1 font-display text-4xl sm:text-5xl">
             {ytStats?.title || profile.youtube}
-          </h1>
+          </h2>
           <p className="mt-3 max-w-2xl text-sm text-muted">
             Stats reales + historial de cada sync (hasta 90 puntos).
           </p>
@@ -360,26 +358,6 @@ function Youtube() {
           ))}
         </ul>
       </section>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-xl bg-surface p-4 shadow-[var(--shadow-border)]">
-      <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-subtle">
-        {label}
-      </p>
-      <p className="mt-2 font-display text-3xl tabular-nums">{value}</p>
-      {hint ? <p className="mt-1 text-sm text-muted">{hint}</p> : null}
     </div>
   );
 }

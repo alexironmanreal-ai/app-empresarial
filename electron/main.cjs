@@ -28,6 +28,9 @@ const PROXIES = {
   "/api/yt": "https://www.googleapis.com",
   "/api/mp": "https://api.mercadopago.com",
   "/api/gh": "https://api.github.com",
+  "/api/ig": "https://graph.instagram.com",
+  "/api/x": "https://api.x.com",
+  "/api/li": "https://api.linkedin.com",
 };
 
 function contentType(filePath) {
