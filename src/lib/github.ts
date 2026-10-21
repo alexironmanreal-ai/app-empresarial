@@ -91,3 +91,29 @@ export async function fetchRecentCommits(
     }),
   );
 }
+
+export async function fetchAuthorActivity(
+  repoInput: string,
+  authorLogin: string,
+  token?: string,
+  limit = 30,
+): Promise<{ commits: GhCommit[]; lastCommitAt: string | null; count7d: number }> {
+  const all = await fetchRecentCommits(repoInput, token, limit);
+  const login = authorLogin.trim().toLowerCase();
+  const commits = login
+    ? all.filter(
+        (c) =>
+          c.author.toLowerCase() === login ||
+          c.author.toLowerCase().includes(login) ||
+          login.includes(c.author.toLowerCase()),
+      )
+    : all;
+  const now = Date.now();
+  const week = 7 * 24 * 60 * 60 * 1000;
+  const count7d = commits.filter((c) => {
+    const t = new Date(c.date).getTime();
+    return Number.isFinite(t) && now - t <= week;
+  }).length;
+  const lastCommitAt = commits[0]?.date ?? null;
+  return { commits, lastCommitAt, count7d };
+}
