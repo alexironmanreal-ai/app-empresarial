@@ -6,6 +6,7 @@ import {
   dayProgress,
   daysInYear,
   parseKey,
+  planForWeekday,
   startOfYear,
   WEEKDAY_LABEL,
 } from "@/lib/tracker";
@@ -129,7 +130,8 @@ function TrackerPage() {
   const [selectedKey, setSelectedKey] = useState(todayKey);
 
   const selected = parseKey(selectedKey);
-  const acts = activitiesForWeekday(selected.getDay());
+  const dayPlan = planForWeekday(selected.getDay());
+  const acts = dayPlan.activities;
   const logForDay = dayLog[selectedKey] ?? {};
 
   const cells = useMemo(() => {
@@ -159,15 +161,13 @@ function TrackerPage() {
     for (let i = 0; i < cells.length; i++) {
       const c = cells[i];
       if (c.key > todayKey) break;
-      cum += c.progress; // 0.56, 0.68, 1.0…
-      // un punto por día hasta hoy (el gráfico se lee bien en desktop)
+      cum += c.progress;
       points.push({
         label: `${c.date.getDate()}/${c.date.getMonth() + 1}`,
-        dia: Math.round(c.progress * 1000) / 10, // 56.7, 100, …
+        dia: Math.round(c.progress * 1000) / 10,
         avance: Math.round(cum * 100) / 100,
       });
     }
-    // si el año recién empieza, al menos un punto
     if (points.length === 0 && cells[0]) {
       points.push({ label: "1/1", dia: 0, avance: 0 });
     }
@@ -205,8 +205,8 @@ function TrackerPage() {
         </p>
         <h1 className="mt-1 font-display text-4xl sm:text-5xl">Tracker</h1>
         <p className="mt-3 max-w-2xl text-sm text-muted">
-          Lun–Mié: OS · Jue–Vie: YouTube · Sáb–Dom: descanso. Se actualiza con el
-          calendario del sistema.
+          Lun/Mié/Vie: SIF · Mar/Jue: YouTube · Sáb/Dom: ensayos y culto. Marcá
+          cada bloque al completarlo; el % del día se actualiza solo.
         </p>
         <p className="mt-2 font-mono text-[12px] text-subtle">
           {completedDays} días al 100% · {partialScore} días-equiv. · racha {streak}
@@ -258,6 +258,8 @@ function TrackerPage() {
           })}
           {selectedKey === todayKey ? " · hoy" : ""}
         </h2>
+        <p className="mt-1 text-sm text-accent">{dayPlan.theme}</p>
+        <p className="mt-1 max-w-2xl text-sm text-muted">{dayPlan.objective}</p>
 
         <ul className="mt-4 space-y-2">
           {acts.map((a) => {
@@ -268,14 +270,14 @@ function TrackerPage() {
                   type="button"
                   onClick={() => toggleDayActivity(selectedKey, a.id)}
                   className={cn(
-                    "flex w-full items-center justify-between rounded-xl px-4 py-3 text-left shadow-[var(--shadow-border)] transition-colors",
+                    "flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-left shadow-[var(--shadow-border)] transition-colors",
                     on ? "bg-accent/15 text-fg" : "bg-surface text-muted hover:text-fg",
                   )}
                 >
-                  <span className="flex items-center gap-3">
+                  <span className="flex min-w-0 items-center gap-3">
                     <span
                       className={cn(
-                        "flex size-5 items-center justify-center rounded border text-[11px]",
+                        "flex size-5 shrink-0 items-center justify-center rounded border text-[11px]",
                         on
                           ? "border-accent bg-accent text-accent-fg"
                           : "border-border",
@@ -283,10 +285,19 @@ function TrackerPage() {
                     >
                       {on ? "✓" : ""}
                     </span>
-                    <span className="text-sm">{a.title}</span>
+                    <span className="min-w-0">
+                      {a.time ? (
+                        <span className="mb-0.5 block font-mono text-[10px] text-subtle">
+                          {a.time}
+                        </span>
+                      ) : null}
+                      <span className="text-sm">{a.title}</span>
+                    </span>
                   </span>
                   {a.hours ? (
-                    <span className="font-mono text-[11px] text-subtle">{a.hours} h</span>
+                    <span className="shrink-0 font-mono text-[11px] text-subtle">
+                      {a.hours} h
+                    </span>
                   ) : null}
                 </button>
               </li>
@@ -295,23 +306,37 @@ function TrackerPage() {
         </ul>
 
         <p className="mt-3 font-mono text-[12px] text-subtle">
-          {Math.round(dayProgress(selectedKey, dayLog) * 100)}% del día
+          {Math.round(dayProgress(selectedKey, dayLog) * 100)}% del día · {acts.length}{" "}
+          bloques
         </p>
       </section>
 
       <section className="rounded-xl bg-surface p-4 text-sm text-muted shadow-[var(--shadow-border)]">
-        <p className="font-display text-lg text-fg">Regla de la semana</p>
-        <ul className="mt-2 list-inside list-disc space-y-1">
+        <p className="font-display text-lg text-fg">Mapa de la semana</p>
+        <ul className="mt-2 list-inside list-disc space-y-1.5">
           <li>
-            <strong className="text-fg">Lun · Mar · Mié</strong> — cocinar, OS 4h,
-            tarea 1h, OS 3h, inglés 1h, descansar
+            <strong className="text-fg">Lun</strong> — SIF ingeniería: un objetivo
+            técnico, documentar y no saltar de proyecto
           </li>
           <li>
-            <strong className="text-fg">Jue · Vie</strong> — cocinar, YouTube 4h,
-            tarea 1h, YouTube 3h, inglés 1h, descansar
+            <strong className="text-fg">Mar</strong> — YouTube producción: guion →
+            grabar → editar (cerrar el guion, no perfeccionarlo infinito)
           </li>
           <li>
-            <strong className="text-fg">Sáb · Dom</strong> — descanso / libre
+            <strong className="text-fg">Mié</strong> — SIF dirección + edu física
+            17–18h: prioridades, equipo, decisiones registradas
+          </li>
+          <li>
+            <strong className="text-fg">Jue</strong> — YouTube publicación: terminar
+            y publicar/programar lo del martes
+          </li>
+          <li>
+            <strong className="text-fg">Vie</strong> — SIF estrategia + edu física
+            17–18h: review semanal y plan de la próxima
+          </li>
+          <li>
+            <strong className="text-fg">Sáb · Dom</strong> — ensayos 8–10 y 15–18,
+            culto 19–21; sin sobrecargar con trabajo empresarial
           </li>
         </ul>
       </section>
