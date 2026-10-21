@@ -1,0 +1,33 @@
+import {
+  Briefcase,
+  Building2,
+  CalendarDays,
+  Cpu,
+  Handshake,
+  LayoutDashboard,
+  ListChecks,
+  NotebookPen,
+  Wallet,
+  Megaphone,
+  Clock,
+  FileText,
+  UserRound,
+  Users,
+} from "lucide-react";
+
+export const NAV = [
+  { to: "/", label: "HQ", icon: LayoutDashboard },
+  { to: "/tareas", label: "Tareas", icon: ListChecks },
+  { to: "/tracker", label: "365", icon: CalendarDays },
+  { to: "/tiempo", label: "Tiempo", icon: Clock },
+  { to: "/registros", label: "Registros", icon: NotebookPen },
+  { to: "/pipeline", label: "Pipeline", icon: Handshake },
+  { to: "/equipo", label: "Equipo", icon: Users },
+  { to: "/empresa", label: "Empresa", icon: Building2 },
+  { to: "/finanzas", label: "Plata", icon: Wallet },
+  { to: "/marca", label: "Marca personal", icon: Megaphone },
+  { to: "/os", label: "OS", icon: Cpu },
+  { to: "/ceo", label: "CEO", icon: Briefcase },
+  { to: "/cv", label: "CV", icon: FileText },
+  { to: "/creador", label: "Creador", icon: UserRound },
+] as const;
