@@ -47,6 +47,7 @@ const NAV = [
   { to: "/equipo", label: "Equipo", icon: Users },
   { to: "/empresa", label: "Empresa", icon: Building2 },
   { to: "/finanzas", label: "Plata", icon: Wallet },
+  { to: "/mail", label: "Mail", icon: Mail },
   { to: "/marca", label: "Marca personal", icon: Megaphone },
   { to: "/os", label: "OS", icon: Cpu },
   { to: "/ceo", label: "CEO", icon: Briefcase },
