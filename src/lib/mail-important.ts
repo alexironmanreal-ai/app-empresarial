@@ -96,6 +96,27 @@ export const MAIL_SOURCES: MailSource[] = [
     priority: 3,
   },
   {
+    id: "linkedin",
+    label: "LinkedIn",
+    patterns: ["linkedin.com", "linkedinmail.com"],
+    category: "social",
+    priority: 3,
+  },
+  {
+    id: "x-twitter",
+    label: "X / Twitter",
+    patterns: ["x.com", "twitter.com", "notify@x.com"],
+    category: "social",
+    priority: 3,
+  },
+  {
+    id: "vercel",
+    label: "Vercel",
+    patterns: ["vercel.com"],
+    category: "infra",
+    priority: 2,
+  },
+  {
     id: "anthropic",
     label: "Anthropic / Claude",
     patterns: ["anthropic.com"],
