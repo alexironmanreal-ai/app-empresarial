@@ -19,6 +19,7 @@ import {
   UserRound,
   Mail,
   Palette,
+  Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
@@ -43,6 +44,7 @@ const NAV = [
   { to: "/tiempo", label: "Tiempo", icon: Clock },
   { to: "/registros", label: "Registros", icon: NotebookPen },
   { to: "/pipeline", label: "Pipeline", icon: Handshake },
+  { to: "/equipo", label: "Equipo", icon: Users },
   { to: "/empresa", label: "Empresa", icon: Building2 },
   { to: "/finanzas", label: "Plata", icon: Wallet },
   { to: "/marca", label: "Marca personal", icon: Megaphone },
@@ -75,7 +77,6 @@ export function Shell({
     void useHq.persist.rehydrate();
   }, []);
 
-  // IPs WORKS: registrar acceso al HQ + ubicación del portátil
   useEffect(() => {
     const mark = useHq.getState().markHqAccess;
     const record = useHq.getState().recordDeviceLocation;
