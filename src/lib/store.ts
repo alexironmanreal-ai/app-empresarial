@@ -5,6 +5,8 @@ import type { Priority } from "./types";
 import type { MpBalance } from "./mercadopago";
 import type { YtChannelStats, YtVideoStat } from "./youtube";
 import type { GhCommit, GhRepoSummary } from "./github";
+import type { TeamMember } from "./team";
+import { defaultTeam } from "./team";
 import { createUserScopedStorage, getCurrentUserId, getSession, migrateUserHqStorage } from "./accounts";
 import { loadHqFromCloud, saveHqToCloud } from "./cloud-sync";
 import { isSupabaseConfigured } from "./supabase";
@@ -142,6 +144,7 @@ type HqState = {
   monthClosures: MonthClosure[];
   connectedApps: ConnectedApp[];
   employees: Employee[];
+  teamMembers: TeamMember[];
   lastHqAccessAt: string | null;
   lastDeviceLocation: DeviceLocationPing | null;
   deviceLocationHistory: DeviceLocationPing[];
@@ -203,6 +206,11 @@ type HqState = {
   addEmployee: (e: Omit<Employee, "id" | "createdAt" | "active">) => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   removeEmployee: (id: string) => void;
+  setTeamMembers: (members: TeamMember[]) => void;
+  upsertTeamMember: (m: TeamMember) => void;
+  removeTeamMember: (id: string) => void;
+  checkInTeamMember: (id: string) => void;
+  patchTeamMember: (id: string, patch: Partial<TeamMember>) => void;
   markHqAccess: () => void;
   markAppOpened: (appId: string) => void;
   recordDeviceLocation: (ping: DeviceLocationPing) => void;
@@ -263,6 +271,7 @@ const initialState = {
   monthClosures: [] as MonthClosure[],
   connectedApps: [] as ConnectedApp[],
   employees: [] as Employee[],
+  teamMembers: defaultTeam(),
   lastHqAccessAt: null as string | null,
   lastDeviceLocation: null as DeviceLocationPing | null,
   deviceLocationHistory: [] as DeviceLocationPing[],
@@ -540,6 +549,32 @@ export const useHq = create<HqState>()(
         set((s) => ({
           employees: (s.employees ?? []).filter((e) => e.id !== id),
         })),
+      setTeamMembers: (teamMembers) => set({ teamMembers }),
+      upsertTeamMember: (m) =>
+        set((s) => {
+          const list = s.teamMembers ?? [];
+          const i = list.findIndex((x) => x.id === m.id);
+          if (i >= 0) {
+            const next = [...list];
+            next[i] = m;
+            return { teamMembers: next };
+          }
+          return { teamMembers: [...list, m] };
+        }),
+      removeTeamMember: (id) =>
+        set((s) => ({ teamMembers: (s.teamMembers ?? []).filter((x) => x.id !== id) })),
+      checkInTeamMember: (id) =>
+        set((s) => ({
+          teamMembers: (s.teamMembers ?? []).map((x) =>
+            x.id === id ? { ...x, lastCheckInAt: new Date().toISOString() } : x,
+          ),
+        })),
+      patchTeamMember: (id, patch) =>
+        set((s) => ({
+          teamMembers: (s.teamMembers ?? []).map((x) =>
+            x.id === id ? { ...x, ...patch } : x,
+          ),
+        })),
       markHqAccess: () => set({ lastHqAccessAt: new Date().toISOString() }),
       markAppOpened: (appId) =>
         set((s) => ({
@@ -626,6 +661,9 @@ export const useHq = create<HqState>()(
             ? (p.connectedApps as ConnectedApp[])
             : [],
           employees: Array.isArray(p.employees) ? (p.employees as Employee[]) : [],
+          teamMembers: Array.isArray(p.teamMembers) && (p.teamMembers as unknown[]).length
+            ? (p.teamMembers as TeamMember[])
+            : defaultTeam(),
           lastHqAccessAt:
             typeof p.lastHqAccessAt === "string" ? p.lastHqAccessAt : null,
           lastDeviceLocation:
@@ -646,7 +684,7 @@ const PERSIST_KEYS = [
   "done", "profile", "currency", "scenario", "onboarded", "focusP0", "mpToken", "mpBalance",
   "caja", "dayLog", "dayNotes", "daySnapshots", "lastReviewAt", "extraMonthlyBurnArs",
   "ytApiKey", "ytChannelInput", "ytStats", "ytVideos", "ytHistory", "social", "customApis", "leads", "monthClosures",
-  "connectedApps", "employees", "lastHqAccessAt", "lastDeviceLocation", "deviceLocationHistory",
+  "connectedApps", "employees", "teamMembers", "lastHqAccessAt", "lastDeviceLocation", "deviceLocationHistory",
   "ghRepoInput", "ghToken", "ghSummary", "ghCommits", "deepWork", "contracts", "killedTaskIds",
   "algorithmDone", "cv", "paidExpenseIds", "arsPerUsd",
 ] as const;
