@@ -6,6 +6,7 @@ import type { MpBalance } from "./mercadopago";
 import type { YtChannelStats, YtVideoStat } from "./youtube";
 import type { GhCommit, GhRepoSummary } from "./github";
 import type { TeamMember } from "./team";
+import type { ImportantMail } from "./mail-important";
 import { defaultTeam } from "./team";
 import { createUserScopedStorage, getCurrentUserId, getSession, migrateUserHqStorage } from "./accounts";
 import { loadHqFromCloud, saveHqToCloud } from "./cloud-sync";
@@ -150,6 +151,10 @@ type HqState = {
   deviceLocationHistory: DeviceLocationPing[];
   ghRepoInput: string;
   ghToken: string;
+  gmailAccessToken: string;
+  mailEnabledSources: string[];
+  importantMails: ImportantMail[];
+  mailLastSyncAt: string | null;
   ghSummary: GhRepoSummary | null;
   ghCommits: GhCommit[];
   deepWork: boolean;
@@ -216,6 +221,9 @@ type HqState = {
   recordDeviceLocation: (ping: DeviceLocationPing) => void;
   setGhRepoInput: (v: string) => void;
   setGhToken: (v: string) => void;
+  setGmailAccessToken: (v: string) => void;
+  setMailEnabledSources: (ids: string[]) => void;
+  setImportantMails: (mails: ImportantMail[]) => void;
   setGhData: (summary: GhRepoSummary | null, commits: GhCommit[]) => void;
   setDeepWork: (v: boolean) => void;
   setCv: (p: Partial<CvData>) => void;
@@ -277,6 +285,20 @@ const initialState = {
   deviceLocationHistory: [] as DeviceLocationPing[],
   ghRepoInput: "",
   ghToken: "",
+  gmailAccessToken: "",
+  mailEnabledSources: [
+    "mercadopago",
+    "supabase",
+    "grok",
+    "notion",
+    "instagram",
+    "github",
+    "stripe",
+    "openai",
+    "anthropic",
+  ],
+  importantMails: [] as ImportantMail[],
+  mailLastSyncAt: null as string | null,
   ghSummary: null as GhRepoSummary | null,
   ghCommits: [] as GhCommit[],
   deepWork: false,
@@ -589,6 +611,10 @@ export const useHq = create<HqState>()(
         })),
       setGhRepoInput: (ghRepoInput) => set({ ghRepoInput }),
       setGhToken: (ghToken) => set({ ghToken }),
+      setGmailAccessToken: (gmailAccessToken) => set({ gmailAccessToken }),
+      setMailEnabledSources: (mailEnabledSources) => set({ mailEnabledSources }),
+      setImportantMails: (importantMails) =>
+        set({ importantMails, mailLastSyncAt: new Date().toISOString() }),
       setGhData: (ghSummary, ghCommits) => set({ ghSummary, ghCommits }),
       setDeepWork: (deepWork) => set({ deepWork }),
       toggleContract: (id) =>
@@ -685,7 +711,7 @@ const PERSIST_KEYS = [
   "caja", "dayLog", "dayNotes", "daySnapshots", "lastReviewAt", "extraMonthlyBurnArs",
   "ytApiKey", "ytChannelInput", "ytStats", "ytVideos", "ytHistory", "social", "customApis", "leads", "monthClosures",
   "connectedApps", "employees", "teamMembers", "lastHqAccessAt", "lastDeviceLocation", "deviceLocationHistory",
-  "ghRepoInput", "ghToken", "ghSummary", "ghCommits", "deepWork", "contracts", "killedTaskIds",
+  "ghRepoInput", "ghToken", "gmailAccessToken", "mailEnabledSources", "importantMails", "mailLastSyncAt", "ghSummary", "ghCommits", "deepWork", "contracts", "killedTaskIds",
   "algorithmDone", "cv", "paidExpenseIds", "arsPerUsd",
 ] as const;
 
