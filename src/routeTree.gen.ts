@@ -4,7 +4,6 @@ import { Route as TareasRoute } from "./routes/tareas";
 import { Route as EmpresaRoute } from "./routes/empresa";
 import { Route as FinanzasRoute } from "./routes/finanzas";
 import { Route as MarcaRoute } from "./routes/marca";
-import { Route as MailRoute } from "./routes/mail";
 import { Route as EquipoRoute } from "./routes/equipo";
 import { Route as OsRoute } from "./routes/os";
 import { Route as CeoRoute } from "./routes/ceo";
@@ -21,7 +20,6 @@ const tareasRoute = TareasRoute.update({ id: "/tareas", path: "/tareas", getPare
 const empresaRoute = EmpresaRoute.update({ id: "/empresa", path: "/empresa", getParentRoute: () => rootRoute });
 const finanzasRoute = FinanzasRoute.update({ id: "/finanzas", path: "/finanzas", getParentRoute: () => rootRoute });
 const marcaRoute = MarcaRoute.update({ id: "/marca", path: "/marca", getParentRoute: () => rootRoute });
-const mailRoute = MailRoute.update({ id: "/mail", path: "/mail", getParentRoute: () => rootRoute });
 const equipoRoute = EquipoRoute.update({ id: "/equipo", path: "/equipo", getParentRoute: () => rootRoute });
 const osRoute = OsRoute.update({ id: "/os", path: "/os", getParentRoute: () => rootRoute });
 const ceoRoute = CeoRoute.update({ id: "/ceo", path: "/ceo", getParentRoute: () => rootRoute });
@@ -39,7 +37,6 @@ export const routeTree = rootRoute.addChildren([
   empresaRoute,
   finanzasRoute,
   marcaRoute,
-  mailRoute,
   equipoRoute,
   osRoute,
   ceoRoute,
